@@ -6,6 +6,7 @@ from datetime import datetime
 import re
 
 # --- CONFIGURAÇÃO DA CHAVE DE API ---
+# Verifique se esta chave está correta e ativa no Google AI Studio
 API_KEY = "AIzaSyD7sS0C6UIITfgkHAd9oJs4YzDHfELV_us"
 genai.configure(api_key=API_KEY)
 
@@ -17,10 +18,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- Estilo CSS Personalizado (Visual Mobile) ---
+# --- CSS Mobile ---
 st.markdown("""
 <style>
-    /* Aumentar botões para facilitar o toque */
     .stButton>button {
         width: 100%;
         height: 3.5em;
@@ -28,7 +28,6 @@ st.markdown("""
         border-radius: 12px;
         font-size: 16px;
     }
-    /* Destaque para a caixa do cliente */
     .cliente-box {
         padding: 20px;
         border-radius: 10px;
@@ -41,7 +40,6 @@ st.markdown("""
         font-weight: 600;
         color: #31333F;
     }
-    /* Esconder menu padrão do Streamlit para limpar a tela */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 </style>
@@ -51,7 +49,7 @@ st.markdown("""
 ARQUIVO_HISTORICO = "historico_treinamento.csv"
 ARQUIVO_EQUIPE = "equipe.csv"
 
-# --- Funções de Dados ---
+# --- Funções ---
 def carregar_equipe():
     if os.path.exists(ARQUIVO_EQUIPE):
         try: return pd.read_csv(ARQUIVO_EQUIPE)['Nome'].tolist()
@@ -74,173 +72,105 @@ def salvar_sessao(dados):
     df = pd.concat([df, pd.DataFrame([dados])], ignore_index=True)
     df.to_csv(ARQUIVO_HISTORICO, index=False)
 
-# --- Função IA Inteligente ---
-@st.cache_resource
-def get_model():
-    try:
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods and 'flash' in m.name:
-                return m.name
-        return "models/gemini-pro"
-    except: return "models/gemini-pro"
+# --- Função de Teste de Modelo (ROBUSTA) ---
+def tentar_gerar(prompt_texto):
+    """Tenta modelos em sequência até um funcionar"""
+    lista_tentativas = ["gemini-1.5-flash", "gemini-pro", "models/gemini-1.5-flash-latest"]
+    
+    ultimo_erro = ""
+    
+    for modelo in lista_tentativas:
+        try:
+            model = genai.GenerativeModel(modelo)
+            return model.generate_content(prompt_texto)
+        except Exception as e:
+            ultimo_erro = str(e)
+            continue # Tenta o próximo
+            
+    # Se chegou aqui, nenhum funcionou. Lança o erro para aparecer na tela.
+    raise Exception(f"Falha em todos os modelos. Último erro: {ultimo_erro}")
 
-MODELO_ATUAL = get_model()
-
-# --- ESTADO INICIAL (PRODUTOS ATUALIZADOS AQUI) ---
+# --- ESTADO INICIAL ---
 if "equipe" not in st.session_state: st.session_state.equipe = carregar_equipe()
 if "cenario" not in st.session_state: st.session_state.cenario = ""
 if "nota" not in st.session_state: st.session_state.nota = 0.0
 
-# LISTA PADRÃO DE PRODUTOS SUPRABIO
 lista_suprabio = "Magnesio dimalato, cloreto de magnesio, melatonina, Coenzima Q10, Complexo B, Vitamina C, Omega 3, Poliviaminico Suprabio Homem, Suprabio Mulher, Suprabio 50+, Suprabio Cabelos e unhas, Fibras, Collageno, Luteina, Calcio MDK, Clamvit Zen, Lactulose."
 
 if "produtos" not in st.session_state: 
     st.session_state.produtos = lista_suprabio
 
-# ==========================================
-# HEADER E CONFIGURAÇÕES (BOTÃO DISCRETO)
-# ==========================================
+# --- INTERFACE ---
 col_titulo, col_config = st.columns([5, 1])
 with col_titulo:
     st.title("💊 Treino Suprabio")
 with col_config:
-    # O MENU DE CONFIGURAÇÃO FICA AQUI DENTRO
     with st.popover("⚙️", use_container_width=True):
-        st.header("Ajustes do Gerente")
-        
-        # Gestão de Produtos
-        st.write("**Produtos Ativos no Treino:**")
-        st.session_state.produtos = st.text_area("Lista:", st.session_state.produtos, height=150)
-        
+        st.header("Ajustes")
+        st.session_state.produtos = st.text_area("Produtos:", st.session_state.produtos, height=150)
         st.markdown("---")
-        # Gestão de Equipe
-        st.subheader("Equipe")
-        novo = st.text_input("Adicionar Colaborador:", placeholder="Nome...")
-        if st.button("➕ Adicionar") and novo:
-            if novo not in st.session_state.equipe:
-                st.session_state.equipe.append(novo)
-                salvar_equipe(st.session_state.equipe)
-                st.rerun()
-        
-        remover = st.selectbox("Remover:", ["Selecione..."] + st.session_state.equipe)
-        if st.button("🗑️ Remover") and remover != "Selecione...":
-            st.session_state.equipe.remove(remover)
+        novo = st.text_input("Add Colaborador:")
+        if st.button("➕") and novo:
+            st.session_state.equipe.append(novo)
             salvar_equipe(st.session_state.equipe)
             st.rerun()
-            
-        st.markdown("---")
-        # Download
         df = carregar_historico()
         if not df.empty:
-            st.download_button("📥 Baixar Relatório CSV", df.to_csv(index=False).encode('utf-8'), "treino.csv", "text/csv")
+            st.download_button("📥 CSV", df.to_csv(index=False).encode('utf-8'), "treino.csv", "text/csv")
 
-# ==========================================
-# ÁREA PRINCIPAL (O PALCO)
-# ==========================================
-
-# 1. DESTAQUE PARA O COLABORADOR
 st.write("### 👤 Quem vai treinar agora?")
-colaborador = st.selectbox("Selecione o vendedor:", ["Clique para selecionar..."] + st.session_state.equipe, label_visibility="collapsed")
-
+colaborador = st.selectbox("Vendedor:", ["Clique..."] + st.session_state.equipe, label_visibility="collapsed")
 st.markdown("---")
 
-if colaborador != "Clique para selecionar...":
-    
-    # 2. BOTÃO DE AÇÃO (GERAR)
+if colaborador != "Clique...":
     if not st.session_state.cenario:
-        st.info("👆 Clique abaixo para trazer um cliente fictício até o balcão.")
         if st.button("🔔 CHAMAR PRÓXIMO CLIENTE", type="primary"):
-            with st.spinner("Cliente entrando na loja..."):
+            with st.spinner("Conectando..."):
                 try:
-                    model = genai.GenerativeModel(MODELO_ATUAL)
-                    # Prompt ajustado para usar a lista completa
-                    prompt = f"Crie uma fala curta (1 frase entre aspas) de um cliente de farmácia com uma queixa específica que se resolve com UM destes produtos: {st.session_state.produtos}. Use linguagem coloquial brasileira natural."
-                    res = model.generate_content(prompt)
+                    # TENTA GERAR USANDO A NOVA FUNÇÃO DE DIAGNÓSTICO
+                    res = tentar_gerar(f"Crie uma fala curta (1 frase entre aspas) de um cliente de farmácia com queixa para: {st.session_state.produtos}. Natural.")
                     st.session_state.cenario = res.text.replace('"', '')
-                    st.session_state.feedback = "" # Limpa anterior
-                    st.rerun()
-                except Exception as e:
-                    st.error("Erro de conexão. Tente novamente.")
-
-    # 3. O CENÁRIO (COM DESTAQUE VISUAL)
-    else:
-        # Caixa estilizada com HTML/CSS injetado acima
-        st.markdown(f"""
-        <div class="cliente-box">
-            <span style="font-size:14px; color:#555;">🗣️ O CLIENTE DIZ:</span><br>
-            <div class="cliente-texto">"{st.session_state.cenario}"</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # 4. RESPOSTA E AVALIAÇÃO
-        resposta = st.text_area("✍️ O que o vendedor respondeu?", height=100, placeholder="Digite a resposta ou dite...")
-
-        if st.button("✅ AVALIAR ATENDIMENTO"):
-            if not resposta:
-                st.warning("Preencha a resposta do vendedor!")
-            else:
-                with st.spinner("O Treinador está analisando..."):
-                    try:
-                        model = genai.GenerativeModel(MODELO_ATUAL)
-                        prompt_av = f"""
-                        Atue como treinador de vendas de farmácia.
-                        Situação: "{st.session_state.cenario}"
-                        Vendedor disse: "{resposta}"
-                        Produtos alvo: {st.session_state.produtos}
-                        
-                        Avalie (0 a 10) com rigor em: Empatia, Perguntas de Sondagem e Oferta de Benefício.
-                        SAÍDA: 
-                        Nota: [Numero]
-                        [Feedback curto e direto em tópicos]
-                        """
-                        res = model.generate_content(prompt_av)
-                        
-                        # Extração de nota
-                        txt = res.text
-                        match = re.search(r"(\d+[\.,]\d+|\d+)", txt.split('\n')[0])
-                        st.session_state.nota = float(match.group(0).replace(',', '.')) if match else 0.0
-                        st.session_state.feedback = txt
-                        st.rerun() # Recarrega para mostrar o resultado limpo
-                    except:
-                        st.error("Erro ao avaliar.")
-
-        # 5. RESULTADO (Só aparece se tiver feedback)
-        if "feedback" in st.session_state and st.session_state.feedback:
-            st.markdown("---")
-            
-            # Nota grande
-            cor_nota = "green" if st.session_state.nota >= 7 else "red"
-            st.markdown(f"<h1 style='text-align: center; color: {cor_nota}'>{st.session_state.nota}/10</h1>", unsafe_allow_html=True)
-            
-            with st.container(border=True):
-                st.markdown(st.session_state.feedback)
-            
-            obs = st.text_input("📝 Obs. do Gerente (Opcional):")
-            
-            col_save, col_new = st.columns(2)
-            with col_save:
-                if st.button("💾 SALVAR", type="primary"):
-                    salvar_sessao({
-                        "Data": datetime.now().strftime("%d/%m %H:%M"),
-                        "Colaborador": colaborador,
-                        "Cenario": st.session_state.cenario,
-                        "Resposta": resposta,
-                        "Nota": st.session_state.nota,
-                        "FeedbackIA": st.session_state.feedback,
-                        "ObsGerente": obs
-                    })
-                    st.success("Salvo!")
-                    st.session_state.cenario = "" # Limpa para recomeçar
                     st.session_state.feedback = ""
                     st.rerun()
+                except Exception as e:
+                    # MOSTRA O ERRO REAL NA TELA
+                    st.error(f"ERRO TÉCNICO: {e}")
+                    st.warning("Dica: Verifique se o arquivo requirements.txt no GitHub tem a linha: google-generativeai>=0.8.3")
+
+    else:
+        st.markdown(f"""<div class="cliente-box"><span style="color:#555;">🗣️ O CLIENTE DIZ:</span><br><div class="cliente-texto">"{st.session_state.cenario}"</div></div>""", unsafe_allow_html=True)
+        resposta = st.text_area("✍️ Resposta:", height=100)
+
+        if st.button("✅ AVALIAR"):
+            if not resposta:
+                st.warning("Escreva a resposta!")
+            else:
+                with st.spinner("Avaliando..."):
+                    try:
+                        res = tentar_gerar(f"Avalie venda farmacia. Cenario: {st.session_state.cenario}. Resposta: {resposta}. Produtos: {st.session_state.produtos}. Dê nota 0-10 e feedback.")
+                        st.session_state.feedback = res.text
+                        match = re.search(r"(\d+[\.,]\d+|\d+)", res.text)
+                        st.session_state.nota = float(match.group(0).replace(',', '.')) if match else 0.0
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"ERRO AO AVALIAR: {e}")
+
+        if st.session_state.feedback:
+            st.markdown("---")
+            cor = "green" if st.session_state.nota >= 7 else "red"
+            st.markdown(f"<h1 style='text-align: center; color: {cor}'>{st.session_state.nota}/10</h1>", unsafe_allow_html=True)
+            st.info(st.session_state.feedback)
             
-            with col_new:
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 SALVAR"):
+                    salvar_sessao({"Data": datetime.now().strftime("%d/%m %H:%M"), "Colaborador": colaborador, "Nota": st.session_state.nota})
+                    st.success("Salvo!")
+                    st.session_state.cenario = ""
+                    st.session_state.feedback = ""
+                    st.rerun()
+            with col2:
                 if st.button("🗑️ DESCARTAR"):
                     st.session_state.cenario = ""
                     st.session_state.feedback = ""
                     st.rerun()
-
-else:
-    # Tela de descanso
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
-    st.info("👈 Selecione um vendedor no topo para começar.")
