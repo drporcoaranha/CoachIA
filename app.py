@@ -219,4 +219,20 @@ if colaborador != "Clique para selecionar...":
                         "Resposta": resposta,
                         "Nota": st.session_state.nota,
                         "FeedbackIA": st.session_state.feedback,
-                        "ObsGerente":
+                        "ObsGerente": obs
+                    })
+                    st.success("Salvo!")
+                    st.session_state.cenario = "" # Limpa para recomeçar
+                    st.session_state.feedback = ""
+                    st.rerun()
+            
+            with col_new:
+                if st.button("🗑️ DESCARTAR"):
+                    st.session_state.cenario = ""
+                    st.session_state.feedback = ""
+                    st.rerun()
+
+else:
+    # Tela de descanso
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    st.info("👈 Selecione um vendedor no topo para começar.")
