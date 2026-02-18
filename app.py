@@ -9,188 +9,203 @@ import re
 API_KEY = "AIzaSyD7sS0C6UIITfgkHAd9oJs4YzDHfELV_us"
 genai.configure(api_key=API_KEY)
 
-# --- Configuração da Página ---
-st.set_page_config(page_title="Treinador Suprabio", layout="wide", page_icon="💊")
+# --- Configuração da Página (Mobile Friendly) ---
+st.set_page_config(
+    page_title="Treinador Suprabio",
+    page_icon="💊",
+    layout="centered", # Melhor para celular
+    initial_sidebar_state="collapsed" # Esconde a barra lateral para ganhar espaço
+)
 
-# --- Variáveis Globais ---
+# --- Arquivos ---
 ARQUIVO_HISTORICO = "historico_treinamento.csv"
+ARQUIVO_EQUIPE = "equipe.csv"
 
-# --- Funções Auxiliares ---
-def carregar_dados():
-    colunas_padrao = ["Data", "Colaborador", "Cenario", "Resposta", "Nota", "FeedbackIA", "ComentariosGerente"]
+# --- Funções de Dados ---
+def carregar_equipe():
+    if os.path.exists(ARQUIVO_EQUIPE):
+        return pd.read_csv(ARQUIVO_EQUIPE)['Nome'].tolist()
+    else:
+        # Lista inicial padrão
+        padrao = ["André", "Bruna", "Eliana", "Gabriel", "Leticia", "Marcella", "Layana"]
+        salvar_equipe(padrao)
+        return padrao
+
+def salvar_equipe(lista_nomes):
+    pd.DataFrame({'Nome': lista_nomes}).to_csv(ARQUIVO_EQUIPE, index=False)
+
+def carregar_historico():
+    colunas = ["Data", "Colaborador", "Cenario", "Resposta", "Nota", "FeedbackIA", "ObsGerente"]
     if os.path.exists(ARQUIVO_HISTORICO):
         try:
             return pd.read_csv(ARQUIVO_HISTORICO)
         except:
-            return pd.DataFrame(columns=colunas_padrao)
-    else:
-        return pd.DataFrame(columns=colunas_padrao)
+            return pd.DataFrame(columns=colunas)
+    return pd.DataFrame(columns=colunas)
 
-def salvar_sessao(colaborador, cenario, resposta, nota, feedback_ia, comentario_gerente):
-    df = carregar_dados()
-    novo_registro = pd.DataFrame([{
-        "Data": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "Colaborador": colaborador,
-        "Cenario": cenario,
-        "Resposta": resposta,
-        "Nota": nota,
-        "FeedbackIA": feedback_ia,
-        "ComentariosGerente": comentario_gerente
-    }])
-    df = pd.concat([df, novo_registro], ignore_index=True)
+def salvar_sessao(dados):
+    df = carregar_historico()
+    novo = pd.DataFrame([dados])
+    df = pd.concat([df, novo], ignore_index=True)
     df.to_csv(ARQUIVO_HISTORICO, index=False)
-    return df
 
-def converter_para_csv(df):
-    return df.to_csv(index=False).encode('utf-8')
-
-# --- FUNÇÃO DE AUTO-DESCOBERTA DE MODELO ---
+# --- Função de Inteligência (Auto-Adaptável) ---
 @st.cache_resource
-def obter_modelo_disponivel():
-    """
-    Busca automaticamente qual modelo está ativo na conta para evitar erro 404.
-    """
+def get_model():
+    # Tenta descobrir qual modelo funciona na conta
     try:
-        # Lista todos os modelos disponíveis para sua chave
-        for m in genai.list_models():
+        modelos = genai.list_models()
+        for m in modelos:
             if 'generateContent' in m.supported_generation_methods:
-                if 'flash' in m.name: # Prioriza o Flash (mais rápido)
-                    return m.name
-        
-        # Se não achar flash, pega o primeiro genérico (ex: gemini-pro)
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                return m.name
-                
-    except Exception as e:
-        return None
-    return "models/gemini-pro" # Fallback final
+                if 'flash' in m.name: return m.name # Prioridade pro Flash
+        return "models/gemini-pro"
+    except:
+        return "models/gemini-pro"
 
-# Define o modelo uma vez ao carregar
-MODELO_NOME = obter_modelo_disponivel()
+MODELO_ATUAL = get_model()
 
-# --- Interface Principal ---
-st.title("💊 Treinador de Vendas - Suprabio")
+# --- CSS para melhorar visual no celular ---
+st.markdown("""
+<style>
+    .stButton>button {
+        width: 100%;
+        height: 3em;
+        font-weight: bold;
+        border-radius: 10px;
+    }
+    div[data-testid="stExpander"] div[role="button"] p {
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+    .big-font {
+        font-size: 18px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# --- Barra Lateral ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3063/3063822.png", width=50)
-    st.header("Configurações")
+# --- Título e Cabeçalho ---
+st.title("💊 Treinador Suprabio")
+st.caption(f"Conectado: {MODELO_ATUAL.split('/')[-1]}")
+
+# --- Gerenciamento de Estado ---
+if "equipe" not in st.session_state:
+    st.session_state.equipe = carregar_equipe()
+if "cenario" not in st.session_state: st.session_state.cenario = ""
+if "nota" not in st.session_state: st.session_state.nota = 0.0
+if "feedback" not in st.session_state: st.session_state.feedback = ""
+
+# --- ÁREA DE CONFIGURAÇÃO (Expander para economizar espaço) ---
+with st.expander("⚙️ Configurações & Equipe"):
+    # Gestão de Equipe
+    st.subheader("Gerenciar Equipe")
+    col_add, col_btn = st.columns([3, 1])
+    novo_nome = col_add.text_input("Novo nome", label_visibility="collapsed", placeholder="Nome...")
+    if col_btn.button("➕"):
+        if novo_nome and novo_nome not in st.session_state.equipe:
+            st.session_state.equipe.append(novo_nome)
+            salvar_equipe(st.session_state.equipe)
+            st.rerun()
+            
+    colab_remove = st.selectbox("Remover alguém?", ["Selecione..."] + st.session_state.equipe)
+    if colab_remove != "Selecione..." and st.button(f"🗑️ Remover {colab_remove}"):
+        st.session_state.equipe.remove(colab_remove)
+        salvar_equipe(st.session_state.equipe)
+        st.rerun()
+
+    st.markdown("---")
+    produtos = st.text_area("Produtos Foco", "Suprabio A-Z, Cabelos e Unhas, Mulher, Sênior, Cálcio MDK.", height=70)
+
+# --- SELEÇÃO DO VENDEDOR ---
+colaborador = st.selectbox("Quem está treinando agora?", ["Selecione..."] + st.session_state.equipe)
+
+# --- ÁREA PRINCIPAL ---
+if colaborador != "Selecione...":
+    st.markdown("---")
     
-    colaborador_atual = st.selectbox(
-        "Quem está treinando?",
-        ["Selecione...", "André", "Bruna", "Eliana", "Gabriel", "Leticia", "Marcella", "Layana"]
-    )
-    
-    if MODELO_NOME:
-        st.caption(f"✅ Conectado ao modelo: {MODELO_NOME.replace('models/', '')}")
-    else:
-        st.error("❌ Erro ao buscar modelos. Verifique a API Key.")
+    # 1. BOTÃO GERAR CENÁRIO
+    if st.button("🔄 CRIAR NOVO CLIENTE", type="primary", use_container_width=True):
+        with st.spinner("Gerando cliente..."):
+            try:
+                model = genai.GenerativeModel(MODELO_ATUAL)
+                prompt = f"Crie uma frase curta (apenas a fala) de um cliente de farmácia com uma queixa que se resolve com: {produtos}. Linguagem natural brasileira."
+                res = model.generate_content(prompt)
+                st.session_state.cenario = res.text.replace('"', '')
+                st.session_state.feedback = ""
+                st.session_state.nota = 0.0
+            except Exception as e:
+                st.error(f"Erro: {e}")
 
-    produtos_suprabio = st.text_area(
-        "Produtos do Treino",
-        value="Suprabio A-Z, Suprabio Cabelos e Unhas, Suprabio Mulher, Suprabio Sênior, Suprabio Cálcio MDK.",
-        height=100
-    )
-
-# --- Abas ---
-tab1, tab2 = st.tabs(["🏋️ Simulação (Roleplay)", "📊 Relatórios"])
-
-# --- ABA 1: SIMULAÇÃO ---
-with tab1:
-    if colaborador_atual != "Selecione...":
+    # 2. EXIBIÇÃO DO CENÁRIO
+    if st.session_state.cenario:
+        st.success(f"🗣️ **Cliente diz:**\n\n\"{st.session_state.cenario}\"")
         
-        if "cenario" not in st.session_state: st.session_state.cenario = ""
-        if "feedback" not in st.session_state: st.session_state.feedback = ""
-        if "nota" not in st.session_state: st.session_state.nota = 0.0
-
-        col1, col2 = st.columns([1, 1])
-
-        with col1:
-            st.subheader("1. Cenário do Cliente")
-            if st.button("🔄 Gerar Novo Cliente", type="primary"):
-                with st.spinner("Criando cliente..."):
+        # 3. RESPOSTA
+        resposta = st.text_area("Sua resposta:", height=100, placeholder="Digite aqui o que você falaria...")
+        
+        # 4. BOTÃO AVALIAR
+        if st.button("✅ AVALIAR RESPOSTA", use_container_width=True):
+            if not resposta:
+                st.warning("Digite algo primeiro!")
+            else:
+                with st.spinner("Analisando..."):
                     try:
-                        model = genai.GenerativeModel(MODELO_NOME)
-                        prompt = f"Crie uma fala curta (apenas a fala entre aspas) de um cliente de farmácia com uma queixa que se resolve com: {produtos_suprabio}. Seja natural e use linguagem coloquial brasileira."
-                        res = model.generate_content(prompt)
-                        st.session_state.cenario = res.text
-                        st.session_state.feedback = ""
-                        st.session_state.nota = 0.0
-                    except Exception as e:
-                        st.error(f"Erro na API: {e}")
+                        model = genai.GenerativeModel(MODELO_ATUAL)
+                        prompt_av = f"""
+                        Atue como gerente de farmácia.
+                        Cenário: "{st.session_state.cenario}"
+                        Vendedor disse: "{resposta}"
+                        Produtos: {produtos}
+                        
+                        Avalie (0-10) considerando: Empatia, Sondagem e Benefício.
+                        SAÍDA: Comece com "NOTA: X". Depois dê dicas curtas.
+                        """
+                        res = model.generate_content(prompt_av)
+                        
+                        # Processar Nota
+                        txt = res.text
+                        match = re.search(r"(\d+[\.,]\d+|\d+)", txt.split('\n')[0])
+                        nota = float(match.group(0).replace(',', '.')) if match else 5.0
+                        
+                        st.session_state.nota = nota
+                        st.session_state.feedback = txt
+                    except:
+                        st.error("Erro na avaliação. Tente de novo.")
 
-            if st.session_state.cenario:
-                st.info(f"🗣️ **Cliente:** {st.session_state.cenario}")
-                
-                st.subheader("2. Resposta do Vendedor")
-                resposta = st.text_area("O que o colaborador respondeu?", height=100)
-                
-                if st.button("🤖 Avaliar Resposta"):
-                    if resposta:
-                        with st.spinner("O Treinador IA está analisando..."):
-                            try:
-                                model = genai.GenerativeModel(MODELO_NOME)
-                                prompt_av = f"""
-                                Aja como um gerente experiente de farmácia treinando a equipe.
-                                Cenário: {st.session_state.cenario}
-                                Resposta do Vendedor: {resposta}
-                                Produtos Alvo: {produtos_suprabio}
-                                
-                                Avalie com rigor:
-                                1. Empatia (conectou com a dor do cliente?)
-                                2. Sondagem (fez perguntas investigativas?)
-                                3. Benefício (focou no resultado e não na fórmula?)
-                                
-                                SAÍDA OBRIGATÓRIA:
-                                A primeira linha deve ser EXATAMENTE assim: "Nota: X.X" (onde X é a nota).
-                                Pule uma linha e dê o feedback detalhado.
-                                """
-                                res = model.generate_content(prompt_av)
-                                txt = res.text.strip().split('\n')
-                                
-                                try:
-                                    primeira_linha = txt[0]
-                                    match = re.search(r"(\d+[\.,]\d+|\d+)", primeira_linha)
-                                    if match:
-                                        nota_str = match.group(0).replace(',', '.')
-                                        st.session_state.nota = float(nota_str)
-                                    else:
-                                        st.session_state.nota = 5.0 
-                                    st.session_state.feedback = "\n".join(txt[1:])
-                                except:
-                                    st.session_state.nota = 0.0
-                                    st.session_state.feedback = res.text
-                            except Exception as e:
-                                st.error(f"Erro na avaliação: {e}")
+        # 5. FEEDBACK E SALVAR
+        if st.session_state.feedback:
+            st.markdown("---")
+            cor = "green" if st.session_state.nota >= 7 else "red"
+            st.markdown(f"### Nota: :{cor}[{st.session_state.nota}]")
+            
+            with st.container(border=True):
+                st.markdown(st.session_state.feedback)
+            
+            obs = st.text_input("Obs do Gerente (Opcional):")
+            
+            if st.button("💾 SALVAR TREINAMENTO", use_container_width=True):
+                salvar_sessao({
+                    "Data": datetime.now().strftime("%d/%m %H:%M"),
+                    "Colaborador": colaborador,
+                    "Cenario": st.session_state.cenario,
+                    "Resposta": resposta,
+                    "Nota": st.session_state.nota,
+                    "FeedbackIA": st.session_state.feedback,
+                    "ObsGerente": obs
+                })
+                st.success("Salvo!")
+                st.session_state.cenario = "" # Limpa para o próximo
+                st.rerun()
 
-        with col2:
-            if st.session_state.feedback:
-                st.subheader("3. Feedback")
-                cor = "green" if st.session_state.nota >= 7 else "red"
-                st.markdown(f"### Nota IA: :{cor}[{st.session_state.nota}/10]")
-                st.write(st.session_state.feedback)
-                
-                st.markdown("---")
-                comentario_gerente = st.text_input("Observação do Gerente (Opcional):")
-                
-                if st.button("💾 Salvar Treinamento"):
-                    salvar_sessao(colaborador_atual, st.session_state.cenario, resposta, st.session_state.nota, st.session_state.feedback, comentario_gerente)
-                    st.success("Salvo! Vá para a aba Relatórios para baixar.")
-                    st.session_state.cenario = ""
-                    st.session_state.feedback = ""
-                    st.rerun()
+else:
+    st.info("👆 Selecione um nome acima para começar.")
 
-    elif colaborador_atual == "Selecione...":
-        st.warning("👈 Selecione o colaborador na barra lateral para começar.")
-
-with tab2:
-    st.header("Histórico da Sessão")
-    st.warning("⚠️ Lembre-se: Baixe o CSV antes de fechar o navegador.")
-    df = carregar_dados()
+# --- RODAPÉ / DOWNLOAD ---
+st.markdown("---")
+with st.expander("📂 Histórico & Relatórios"):
+    df = carregar_historico()
     if not df.empty:
-        csv = converter_para_csv(df)
-        st.download_button(label="📥 Baixar Relatório (CSV)", data=csv, file_name=f"treino_suprabio.csv", mime='text/csv')
-        st.dataframe(df)
+        st.dataframe(df.sort_values(by="Data", ascending=False), use_container_width=True, hide_index=True)
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Baixar Planilha", data=csv, file_name="treino_suprabio.csv", mime="text/csv", use_container_width=True)
     else:
-        st.info("Nenhum dado salvo ainda.")
+        st.write("Sem dados ainda.")
