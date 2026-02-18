@@ -85,7 +85,8 @@ with tab1:
             if st.button("🔄 Gerar Novo Cliente", type="primary"):
                 with st.spinner("Criando cliente..."):
                     try:
-                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        # CORREÇÃO AQUI: Mudado para 'gemini-pro'
+                        model = genai.GenerativeModel('gemini-pro')
                         prompt = f"Crie uma fala curta de um cliente de farmácia com uma queixa que se resolve com: {produtos_suprabio}. Seja natural."
                         res = model.generate_content(prompt)
                         st.session_state.cenario = res.text
@@ -103,20 +104,33 @@ with tab1:
                 if st.button("🤖 Avaliar Resposta"):
                     if resposta:
                         with st.spinner("O Treinador IA está analisando..."):
-                            model = genai.GenerativeModel('gemini-1.5-flash')
-                            prompt_av = f"""
-                            Avalie venda farmácia. Cenário: {st.session_state.cenario}. Resposta: {resposta}. Produtos: {produtos_suprabio}.
-                            Critérios: Empatia, Sondagem, Benefício.
-                            SAÍDA: 1ª linha apenas número da nota (ex: 7.5). Linhas seguintes: feedback.
-                            """
-                            res = model.generate_content(prompt_av)
-                            txt = res.text.strip().split('\n')
                             try:
-                                st.session_state.nota = float(txt[0].replace("Nota:", "").replace("/10","").strip())
-                                st.session_state.feedback = "\n".join(txt[1:])
-                            except:
-                                st.session_state.nota = 0.0
-                                st.session_state.feedback = res.text
+                                # CORREÇÃO AQUI: Mudado para 'gemini-pro'
+                                model = genai.GenerativeModel('gemini-pro')
+                                prompt_av = f"""
+                                Avalie venda farmácia. Cenário: {st.session_state.cenario}. Resposta: {resposta}. Produtos: {produtos_suprabio}.
+                                Critérios: Empatia, Sondagem, Benefício.
+                                SAÍDA: 1ª linha apenas número da nota (ex: 7.5). Linhas seguintes: feedback.
+                                """
+                                res = model.generate_content(prompt_av)
+                                txt = res.text.strip().split('\n')
+                                try:
+                                    # Lógica para pegar a nota mesmo se vier texto antes
+                                    primeira_linha = txt[0]
+                                    import re
+                                    # Procura o primeiro número float na linha
+                                    match = re.search(r"(\d+(\.\d+)?)", primeira_linha)
+                                    if match:
+                                        st.session_state.nota = float(match.group(1))
+                                    else:
+                                        st.session_state.nota = 5.0
+                                    
+                                    st.session_state.feedback = "\n".join(txt[1:])
+                                except:
+                                    st.session_state.nota = 0.0
+                                    st.session_state.feedback = res.text
+                            except Exception as e:
+                                st.error(f"Erro na avaliação: {e}")
 
         with col2:
             if st.session_state.feedback:
