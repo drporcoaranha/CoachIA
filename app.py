@@ -3,7 +3,12 @@ import google.generativeai as genai
 import pandas as pd
 import os
 from datetime import datetime
-from io import BytesIO
+import re
+
+# --- CONFIGURAÇÃO DA CHAVE DE API ---
+# A chave já está inserida aqui para facilitar o uso na empresa
+API_KEY = "AIzaSyD7sS0C6UIITfgkHAd9oJs4YzDHfELV_us"
+genai.configure(api_key=API_KEY)
 
 # --- Configuração da Página ---
 st.set_page_config(page_title="Treinador Suprabio", layout="wide", page_icon="💊")
@@ -37,7 +42,6 @@ def salvar_sessao(colaborador, cenario, resposta, nota, feedback_ia, comentario_
     df.to_csv(ARQUIVO_HISTORICO, index=False)
     return df
 
-# Função para converter DF para CSV baixável
 def converter_para_csv(df):
     return df.to_csv(index=False).encode('utf-8')
 
@@ -49,31 +53,27 @@ with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3063/3063822.png", width=50)
     st.header("Configurações")
     
-    # Campo de senha (API Key)
-    api_key = st.text_input("Cole sua API Key do Gemini aqui:", type="password")
-    st.caption("A chave não fica salva quando a página recarrega.")
-    
     colaborador_atual = st.selectbox(
         "Quem está treinando?",
         ["Selecione...", "André", "Bruna", "Eliana", "Gabriel", "Leticia", "Marcella", "Layana"]
     )
     
-    # Produtos editáveis
     produtos_suprabio = st.text_area(
         "Produtos do Treino",
         value="Suprabio A-Z, Suprabio Cabelos e Unhas, Suprabio Mulher, Suprabio Sênior, Suprabio Cálcio MDK.",
         height=100
     )
+    
+    st.success("✅ Sistema Conectado")
 
 # --- Abas ---
 tab1, tab2 = st.tabs(["🏋️ Simulação (Roleplay)", "📊 Relatórios"])
 
 # --- ABA 1: SIMULAÇÃO ---
 with tab1:
-    if api_key and colaborador_atual != "Selecione...":
-        genai.configure(api_key=api_key)
+    if colaborador_atual != "Selecione...":
         
-        # Estados da sessão
+        # Inicializa variáveis de estado se não existirem
         if "cenario" not in st.session_state: st.session_state.cenario = ""
         if "feedback" not in st.session_state: st.session_state.feedback = ""
         if "nota" not in st.session_state: st.session_state.nota = 0.0
@@ -85,9 +85,9 @@ with tab1:
             if st.button("🔄 Gerar Novo Cliente", type="primary"):
                 with st.spinner("Criando cliente..."):
                     try:
-                        # CORREÇÃO AQUI: Mudado para 'gemini-pro'
-                        model = genai.GenerativeModel('gemini-pro')
-                        prompt = f"Crie uma fala curta de um cliente de farmácia com uma queixa que se resolve com: {produtos_suprabio}. Seja natural."
+                        # Usando o modelo flash que é mais rápido
+                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        prompt = f"Crie uma fala curta (apenas a fala entre aspas) de um cliente de farmácia com uma queixa que se resolve com: {produtos_suprabio}. Seja natural e use linguagem coloquial brasileira."
                         res = model.generate_content(prompt)
                         st.session_state.cenario = res.text
                         st.session_state.feedback = ""
@@ -105,25 +105,36 @@ with tab1:
                     if resposta:
                         with st.spinner("O Treinador IA está analisando..."):
                             try:
-                                # CORREÇÃO AQUI: Mudado para 'gemini-pro'
-                                model = genai.GenerativeModel('gemini-pro')
+                                model = genai.GenerativeModel('gemini-1.5-flash')
                                 prompt_av = f"""
-                                Avalie venda farmácia. Cenário: {st.session_state.cenario}. Resposta: {resposta}. Produtos: {produtos_suprabio}.
-                                Critérios: Empatia, Sondagem, Benefício.
-                                SAÍDA: 1ª linha apenas número da nota (ex: 7.5). Linhas seguintes: feedback.
+                                Aja como um gerente experiente de farmácia treinando a equipe.
+                                Cenário: {st.session_state.cenario}
+                                Resposta do Vendedor: {resposta}
+                                Produtos Alvo: {produtos_suprabio}
+                                
+                                Avalie com rigor:
+                                1. Empatia (conectou com a dor do cliente?)
+                                2. Sondagem (fez perguntas investigativas?)
+                                3. Benefício (focou no resultado e não na fórmula?)
+                                
+                                SAÍDA OBRIGATÓRIA:
+                                A primeira linha deve ser EXATAMENTE assim: "Nota: X.X" (onde X é a nota).
+                                Pule uma linha e dê o feedback detalhado.
                                 """
                                 res = model.generate_content(prompt_av)
                                 txt = res.text.strip().split('\n')
+                                
+                                # Extração da nota
                                 try:
-                                    # Lógica para pegar a nota mesmo se vier texto antes
                                     primeira_linha = txt[0]
-                                    import re
-                                    # Procura o primeiro número float na linha
-                                    match = re.search(r"(\d+(\.\d+)?)", primeira_linha)
+                                    # Procura um número (ex: 8.5 ou 8,5)
+                                    match = re.search(r"(\d+[\.,]\d+|\d+)", primeira_linha)
                                     if match:
-                                        st.session_state.nota = float(match.group(1))
+                                        # Troca vírgula por ponto para converter pra float
+                                        nota_str = match.group(0).replace(',', '.')
+                                        st.session_state.nota = float(nota_str)
                                     else:
-                                        st.session_state.nota = 5.0
+                                        st.session_state.nota = 5.0 # Nota padrão se falhar a leitura
                                     
                                     st.session_state.feedback = "\n".join(txt[1:])
                                 except:
@@ -145,23 +156,25 @@ with tab1:
                 if st.button("💾 Salvar Treinamento"):
                     salvar_sessao(colaborador_atual, st.session_state.cenario, resposta, st.session_state.nota, st.session_state.feedback, comentario_gerente)
                     st.success("Salvo! Vá para a aba Relatórios para baixar.")
+                    # Limpa para o próximo
+                    st.session_state.cenario = ""
+                    st.session_state.feedback = ""
+                    st.rerun()
 
     elif colaborador_atual == "Selecione...":
-        st.warning("👈 Selecione o colaborador na barra lateral.")
-    else:
-        st.warning("👈 Cole sua API Key na barra lateral.")
+        st.warning("👈 Selecione o colaborador na barra lateral para começar.")
 
 # --- ABA 2: RELATÓRIOS ---
 with tab2:
     st.header("Histórico da Sessão")
-    st.warning("⚠️ Importante: Baixe o CSV antes de fechar o navegador, ou os dados serão perdidos na nuvem.")
+    st.warning("⚠️ Lembre-se: Baixe o CSV antes de fechar o navegador.")
     
     df = carregar_dados()
     if not df.empty:
         csv = converter_para_csv(df)
         
         st.download_button(
-            label="📥 Baixar Relatório em Excel (CSV)",
+            label="📥 Baixar Relatório (CSV)",
             data=csv,
             file_name=f"treino_suprabio_{datetime.now().strftime('%d-%m')}.csv",
             mime='text/csv',
