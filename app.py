@@ -6,7 +6,6 @@ from datetime import datetime
 import re
 
 # --- CONFIGURAÇÃO DA CHAVE DE API ---
-# A chave já está inserida aqui para facilitar o uso na empresa
 API_KEY = "AIzaSyD7sS0C6UIITfgkHAd9oJs4YzDHfELV_us"
 genai.configure(api_key=API_KEY)
 
@@ -44,6 +43,29 @@ def salvar_sessao(colaborador, cenario, resposta, nota, feedback_ia, comentario_
 
 def converter_para_csv(df):
     return df.to_csv(index=False).encode('utf-8')
+
+# --- FUNÇÃO DE SEGURANÇA (O Pulo do Gato) ---
+def tentar_gerar_conteudo(prompt):
+    """
+    Tenta usar o modelo mais novo. Se der erro, tenta o antigo automaticamente.
+    Isso evita o erro 404 'Model not found'.
+    """
+    lista_modelos = ["gemini-1.5-flash", "gemini-pro", "models/gemini-pro", "gemini-1.0-pro"]
+    
+    erro_final = ""
+    
+    for modelo_nome in lista_modelos:
+        try:
+            model = genai.GenerativeModel(modelo_nome)
+            resposta = model.generate_content(prompt)
+            return resposta # Se funcionou, retorna e sai da função
+        except Exception as e:
+            # Se der erro, apenas continua para o próximo da lista
+            erro_final = str(e)
+            continue
+            
+    # Se chegou aqui, nenhum funcionou
+    raise Exception(f"Nenhum modelo funcionou. Erro: {erro_final}")
 
 # --- Interface Principal ---
 st.title("💊 Treinador de Vendas - Suprabio")
@@ -83,17 +105,16 @@ with tab1:
         with col1:
             st.subheader("1. Cenário do Cliente")
             if st.button("🔄 Gerar Novo Cliente", type="primary"):
-                with st.spinner("Criando cliente..."):
+                with st.spinner("Criando cliente (buscando melhor servidor)..."):
                     try:
-                        # Usando o modelo flash que é mais rápido
-                        model = genai.GenerativeModel('gemini-1.5-flash')
                         prompt = f"Crie uma fala curta (apenas a fala entre aspas) de um cliente de farmácia com uma queixa que se resolve com: {produtos_suprabio}. Seja natural e use linguagem coloquial brasileira."
-                        res = model.generate_content(prompt)
+                        # Usando a nova função segura
+                        res = tentar_gerar_conteudo(prompt)
                         st.session_state.cenario = res.text
                         st.session_state.feedback = ""
                         st.session_state.nota = 0.0
                     except Exception as e:
-                        st.error(f"Erro na API: {e}")
+                        st.error(f"Erro de conexão: {e}")
 
             if st.session_state.cenario:
                 st.info(f"🗣️ **Cliente:** {st.session_state.cenario}")
@@ -105,7 +126,6 @@ with tab1:
                     if resposta:
                         with st.spinner("O Treinador IA está analisando..."):
                             try:
-                                model = genai.GenerativeModel('gemini-1.5-flash')
                                 prompt_av = f"""
                                 Aja como um gerente experiente de farmácia treinando a equipe.
                                 Cenário: {st.session_state.cenario}
@@ -121,20 +141,19 @@ with tab1:
                                 A primeira linha deve ser EXATAMENTE assim: "Nota: X.X" (onde X é a nota).
                                 Pule uma linha e dê o feedback detalhado.
                                 """
-                                res = model.generate_content(prompt_av)
+                                # Usando a nova função segura
+                                res = tentar_gerar_conteudo(prompt_av)
                                 txt = res.text.strip().split('\n')
                                 
                                 # Extração da nota
                                 try:
                                     primeira_linha = txt[0]
-                                    # Procura um número (ex: 8.5 ou 8,5)
                                     match = re.search(r"(\d+[\.,]\d+|\d+)", primeira_linha)
                                     if match:
-                                        # Troca vírgula por ponto para converter pra float
                                         nota_str = match.group(0).replace(',', '.')
                                         st.session_state.nota = float(nota_str)
                                     else:
-                                        st.session_state.nota = 5.0 # Nota padrão se falhar a leitura
+                                        st.session_state.nota = 5.0 
                                     
                                     st.session_state.feedback = "\n".join(txt[1:])
                                 except:
@@ -156,7 +175,6 @@ with tab1:
                 if st.button("💾 Salvar Treinamento"):
                     salvar_sessao(colaborador_atual, st.session_state.cenario, resposta, st.session_state.nota, st.session_state.feedback, comentario_gerente)
                     st.success("Salvo! Vá para a aba Relatórios para baixar.")
-                    # Limpa para o próximo
                     st.session_state.cenario = ""
                     st.session_state.feedback = ""
                     st.rerun()
