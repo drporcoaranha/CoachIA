@@ -5,9 +5,16 @@ import os
 from datetime import datetime
 import re
 
-# --- CONFIGURAÇÃO DA CHAVE DE API ---
-API_KEY = "AIzaSyD7sS0C6UIITfgkHAd9oJs4YzDHfELV_us"
-genai.configure(api_key=API_KEY)
+# --- CONFIGURAÇÃO DA CHAVE DE API (SEGURA) ---
+# Agora o código busca a chave no cofre do Streamlit
+try:
+    API_KEY = st.secrets["GOOGLE_API_KEY"]
+    genai.configure(api_key=API_KEY)
+    CONEXAO_OK = True
+except:
+    # Se não achar no cofre, pede na tela (fallback)
+    API_KEY = ""
+    CONEXAO_OK = False
 
 # --- Configuração da Página ---
 st.set_page_config(
@@ -74,22 +81,16 @@ def salvar_sessao(dados):
 # --- FUNÇÃO INTELIGENTE DE SELEÇÃO DE MODELO ---
 @st.cache_resource
 def encontrar_modelo_disponivel():
-    """
-    Em vez de adivinhar, esta função lista o que o servidor aceita
-    e escolhe o melhor disponível.
-    """
+    if not API_KEY: return None
     try:
         modelos_disponiveis = []
-        # Tenta listar todos os modelos da sua conta
         for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
                 modelos_disponiveis.append(m.name)
         
-        # Se não achou nada, força o padrão antigo
-        if not modelos_disponiveis:
-            return "models/gemini-pro"
+        if not modelos_disponiveis: return "models/gemini-pro"
 
-        # Prioridade: Tenta achar o 1.5 Flash (mais rápido), senão o Pro, senão o primeiro da lista
+        # Prioridade Flash > Pro 1.5 > Pro 1.0
         for m in modelos_disponiveis:
             if "flash" in m: return m
         for m in modelos_disponiveis:
@@ -97,10 +98,9 @@ def encontrar_modelo_disponivel():
         for m in modelos_disponiveis:
             if "gemini-pro" in m: return m
             
-        return modelos_disponiveis[0] # Retorna qualquer um que funcione
-        
-    except Exception as e:
-        return None # Retorna erro para tratar na interface
+        return modelos_disponiveis[0]
+    except:
+        return None
 
 # Descobre o modelo ao iniciar
 MODELO_NOME = encontrar_modelo_disponivel()
@@ -119,15 +119,23 @@ if "produtos" not in st.session_state:
 col_titulo, col_config = st.columns([5, 1])
 with col_titulo:
     st.title("💊 Treino Suprabio")
-    # Debug discreto para sabermos qual modelo foi escolhido
-    if MODELO_NOME:
-        st.caption(f"Conectado via: {MODELO_NOME.replace('models/', '')}")
+    if not CONEXAO_OK:
+        st.error("⚠️ Configure a API Key nos 'Secrets' do Streamlit!")
+    elif MODELO_NOME:
+        st.caption(f"Conectado: {MODELO_NOME.replace('models/', '')}")
     else:
-        st.error("⚠️ Erro crítico: Não foi possível listar modelos. Verifique API Key.")
+        st.warning("⚠️ Chave configurada, mas erro ao listar modelos. Gere uma nova chave.")
 
 with col_config:
     with st.popover("⚙️", use_container_width=True):
         st.header("Ajustes")
+        # Se não configurou Secrets, permite digitar aqui
+        if not CONEXAO_OK:
+            nova_key = st.text_input("Cole API Key aqui (Provisório):", type="password")
+            if nova_key:
+                genai.configure(api_key=nova_key)
+                st.rerun()
+                
         st.session_state.produtos = st.text_area("Produtos:", st.session_state.produtos, height=150)
         st.markdown("---")
         novo = st.text_input("Add Colaborador:")
@@ -146,18 +154,20 @@ st.markdown("---")
 if colaborador != "Clique...":
     if not st.session_state.cenario:
         if st.button("🔔 CHAMAR PRÓXIMO CLIENTE", type="primary"):
-            if not MODELO_NOME:
-                st.error("Sistema offline. Verifique a chave API ou requirements.txt")
+            if not MODELO_NOME and not CONEXAO_OK:
+                st.error("Sem conexão. Configure a chave.")
             else:
-                with st.spinner(f"Gerando cliente usando {MODELO_NOME.split('/')[-1]}..."):
+                # Se o modelo falhar na auto-descoberta, tenta forçar o básico
+                modelo_uso = MODELO_NOME if MODELO_NOME else "models/gemini-pro"
+                with st.spinner("Gerando cliente..."):
                     try:
-                        model = genai.GenerativeModel(MODELO_NOME)
+                        model = genai.GenerativeModel(modelo_uso)
                         res = model.generate_content(f"Crie uma fala curta (1 frase entre aspas) de um cliente de farmácia com queixa para: {st.session_state.produtos}. Natural.")
                         st.session_state.cenario = res.text.replace('"', '')
                         st.session_state.feedback = ""
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Erro ao gerar: {e}")
+                        st.error(f"Erro: {e}")
 
     else:
         st.markdown(f"""<div class="cliente-box"><span style="color:#555;">🗣️ O CLIENTE DIZ:</span><br><div class="cliente-texto">"{st.session_state.cenario}"</div></div>""", unsafe_allow_html=True)
@@ -169,7 +179,8 @@ if colaborador != "Clique...":
             else:
                 with st.spinner("Avaliando..."):
                     try:
-                        model = genai.GenerativeModel(MODELO_NOME)
+                        modelo_uso = MODELO_NOME if MODELO_NOME else "models/gemini-pro"
+                        model = genai.GenerativeModel(modelo_uso)
                         res = model.generate_content(f"Avalie venda farmacia. Cenario: {st.session_state.cenario}. Resposta: {resposta}. Produtos: {st.session_state.produtos}. Dê nota 0-10 e feedback.")
                         st.session_state.feedback = res.text
                         match = re.search(r"(\d+[\.,]\d+|\d+)", res.text)
