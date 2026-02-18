@@ -6,7 +6,6 @@ from datetime import datetime
 import re
 
 # --- CONFIGURAÇÃO DA CHAVE DE API ---
-# Verifique se esta chave está correta e ativa no Google AI Studio
 API_KEY = "AIzaSyD7sS0C6UIITfgkHAd9oJs4YzDHfELV_us"
 genai.configure(api_key=API_KEY)
 
@@ -72,23 +71,39 @@ def salvar_sessao(dados):
     df = pd.concat([df, pd.DataFrame([dados])], ignore_index=True)
     df.to_csv(ARQUIVO_HISTORICO, index=False)
 
-# --- Função de Teste de Modelo (ROBUSTA) ---
-def tentar_gerar(prompt_texto):
-    """Tenta modelos em sequência até um funcionar"""
-    lista_tentativas = ["gemini-1.5-flash", "gemini-pro", "models/gemini-1.5-flash-latest"]
-    
-    ultimo_erro = ""
-    
-    for modelo in lista_tentativas:
-        try:
-            model = genai.GenerativeModel(modelo)
-            return model.generate_content(prompt_texto)
-        except Exception as e:
-            ultimo_erro = str(e)
-            continue # Tenta o próximo
+# --- FUNÇÃO INTELIGENTE DE SELEÇÃO DE MODELO ---
+@st.cache_resource
+def encontrar_modelo_disponivel():
+    """
+    Em vez de adivinhar, esta função lista o que o servidor aceita
+    e escolhe o melhor disponível.
+    """
+    try:
+        modelos_disponiveis = []
+        # Tenta listar todos os modelos da sua conta
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                modelos_disponiveis.append(m.name)
+        
+        # Se não achou nada, força o padrão antigo
+        if not modelos_disponiveis:
+            return "models/gemini-pro"
+
+        # Prioridade: Tenta achar o 1.5 Flash (mais rápido), senão o Pro, senão o primeiro da lista
+        for m in modelos_disponiveis:
+            if "flash" in m: return m
+        for m in modelos_disponiveis:
+            if "pro" in m and "1.5" in m: return m
+        for m in modelos_disponiveis:
+            if "gemini-pro" in m: return m
             
-    # Se chegou aqui, nenhum funcionou. Lança o erro para aparecer na tela.
-    raise Exception(f"Falha em todos os modelos. Último erro: {ultimo_erro}")
+        return modelos_disponiveis[0] # Retorna qualquer um que funcione
+        
+    except Exception as e:
+        return None # Retorna erro para tratar na interface
+
+# Descobre o modelo ao iniciar
+MODELO_NOME = encontrar_modelo_disponivel()
 
 # --- ESTADO INICIAL ---
 if "equipe" not in st.session_state: st.session_state.equipe = carregar_equipe()
@@ -104,6 +119,12 @@ if "produtos" not in st.session_state:
 col_titulo, col_config = st.columns([5, 1])
 with col_titulo:
     st.title("💊 Treino Suprabio")
+    # Debug discreto para sabermos qual modelo foi escolhido
+    if MODELO_NOME:
+        st.caption(f"Conectado via: {MODELO_NOME.replace('models/', '')}")
+    else:
+        st.error("⚠️ Erro crítico: Não foi possível listar modelos. Verifique API Key.")
+
 with col_config:
     with st.popover("⚙️", use_container_width=True):
         st.header("Ajustes")
@@ -125,17 +146,18 @@ st.markdown("---")
 if colaborador != "Clique...":
     if not st.session_state.cenario:
         if st.button("🔔 CHAMAR PRÓXIMO CLIENTE", type="primary"):
-            with st.spinner("Conectando..."):
-                try:
-                    # TENTA GERAR USANDO A NOVA FUNÇÃO DE DIAGNÓSTICO
-                    res = tentar_gerar(f"Crie uma fala curta (1 frase entre aspas) de um cliente de farmácia com queixa para: {st.session_state.produtos}. Natural.")
-                    st.session_state.cenario = res.text.replace('"', '')
-                    st.session_state.feedback = ""
-                    st.rerun()
-                except Exception as e:
-                    # MOSTRA O ERRO REAL NA TELA
-                    st.error(f"ERRO TÉCNICO: {e}")
-                    st.warning("Dica: Verifique se o arquivo requirements.txt no GitHub tem a linha: google-generativeai>=0.8.3")
+            if not MODELO_NOME:
+                st.error("Sistema offline. Verifique a chave API ou requirements.txt")
+            else:
+                with st.spinner(f"Gerando cliente usando {MODELO_NOME.split('/')[-1]}..."):
+                    try:
+                        model = genai.GenerativeModel(MODELO_NOME)
+                        res = model.generate_content(f"Crie uma fala curta (1 frase entre aspas) de um cliente de farmácia com queixa para: {st.session_state.produtos}. Natural.")
+                        st.session_state.cenario = res.text.replace('"', '')
+                        st.session_state.feedback = ""
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro ao gerar: {e}")
 
     else:
         st.markdown(f"""<div class="cliente-box"><span style="color:#555;">🗣️ O CLIENTE DIZ:</span><br><div class="cliente-texto">"{st.session_state.cenario}"</div></div>""", unsafe_allow_html=True)
@@ -147,7 +169,8 @@ if colaborador != "Clique...":
             else:
                 with st.spinner("Avaliando..."):
                     try:
-                        res = tentar_gerar(f"Avalie venda farmacia. Cenario: {st.session_state.cenario}. Resposta: {resposta}. Produtos: {st.session_state.produtos}. Dê nota 0-10 e feedback.")
+                        model = genai.GenerativeModel(MODELO_NOME)
+                        res = model.generate_content(f"Avalie venda farmacia. Cenario: {st.session_state.cenario}. Resposta: {resposta}. Produtos: {st.session_state.produtos}. Dê nota 0-10 e feedback.")
                         st.session_state.feedback = res.text
                         match = re.search(r"(\d+[\.,]\d+|\d+)", res.text)
                         st.session_state.nota = float(match.group(0).replace(',', '.')) if match else 0.0
