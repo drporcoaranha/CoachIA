@@ -54,7 +54,8 @@ ARQUIVO_EQUIPE = "equipe.csv"
 # --- Funções de Dados ---
 def carregar_equipe():
     if os.path.exists(ARQUIVO_EQUIPE):
-        return pd.read_csv(ARQUIVO_EQUIPE)['Nome'].tolist()
+        try: return pd.read_csv(ARQUIVO_EQUIPE)['Nome'].tolist()
+        except: pass
     padrao = ["André", "Bruna", "Eliana", "Gabriel", "Leticia", "Marcella", "Layana"]
     salvar_equipe(padrao)
     return padrao
@@ -85,11 +86,16 @@ def get_model():
 
 MODELO_ATUAL = get_model()
 
-# --- ESTADO INICIAL ---
+# --- ESTADO INICIAL (PRODUTOS ATUALIZADOS AQUI) ---
 if "equipe" not in st.session_state: st.session_state.equipe = carregar_equipe()
 if "cenario" not in st.session_state: st.session_state.cenario = ""
-if "produtos" not in st.session_state: st.session_state.produtos = "Suprabio A-Z, Cabelos e Unhas, Mulher, Sênior, Cálcio MDK."
 if "nota" not in st.session_state: st.session_state.nota = 0.0
+
+# LISTA PADRÃO DE PRODUTOS SUPRABIO
+lista_suprabio = "Magnesio dimalato, cloreto de magnesio, melatonina, Coenzima Q10, Complexo B, Vitamina C, Omega 3, Poliviaminico Suprabio Homem, Suprabio Mulher, Suprabio 50+, Suprabio Cabelos e unhas, Fibras, Collageno, Luteina, Calcio MDK, Clamvit Zen, Lactulose."
+
+if "produtos" not in st.session_state: 
+    st.session_state.produtos = lista_suprabio
 
 # ==========================================
 # HEADER E CONFIGURAÇÕES (BOTÃO DISCRETO)
@@ -103,7 +109,8 @@ with col_config:
         st.header("Ajustes do Gerente")
         
         # Gestão de Produtos
-        st.session_state.produtos = st.text_area("Produtos Foco:", st.session_state.produtos, height=100)
+        st.write("**Produtos Ativos no Treino:**")
+        st.session_state.produtos = st.text_area("Lista:", st.session_state.produtos, height=150)
         
         st.markdown("---")
         # Gestão de Equipe
@@ -146,7 +153,8 @@ if colaborador != "Clique para selecionar...":
             with st.spinner("Cliente entrando na loja..."):
                 try:
                     model = genai.GenerativeModel(MODELO_ATUAL)
-                    prompt = f"Crie uma fala curta (1 frase) de um cliente de farmácia com uma queixa que se resolve com: {st.session_state.produtos}. Use linguagem coloquial brasileira natural."
+                    # Prompt ajustado para usar a lista completa
+                    prompt = f"Crie uma fala curta (1 frase entre aspas) de um cliente de farmácia com uma queixa específica que se resolve com UM destes produtos: {st.session_state.produtos}. Use linguagem coloquial brasileira natural."
                     res = model.generate_content(prompt)
                     st.session_state.cenario = res.text.replace('"', '')
                     st.session_state.feedback = "" # Limpa anterior
