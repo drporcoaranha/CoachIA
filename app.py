@@ -44,28 +44,30 @@ def salvar_sessao(colaborador, cenario, resposta, nota, feedback_ia, comentario_
 def converter_para_csv(df):
     return df.to_csv(index=False).encode('utf-8')
 
-# --- FUNÇÃO DE SEGURANÇA (O Pulo do Gato) ---
-def tentar_gerar_conteudo(prompt):
+# --- FUNÇÃO DE AUTO-DESCOBERTA DE MODELO ---
+@st.cache_resource
+def obter_modelo_disponivel():
     """
-    Tenta usar o modelo mais novo. Se der erro, tenta o antigo automaticamente.
-    Isso evita o erro 404 'Model not found'.
+    Busca automaticamente qual modelo está ativo na conta para evitar erro 404.
     """
-    lista_modelos = ["gemini-1.5-flash", "gemini-pro", "models/gemini-pro", "gemini-1.0-pro"]
-    
-    erro_final = ""
-    
-    for modelo_nome in lista_modelos:
-        try:
-            model = genai.GenerativeModel(modelo_nome)
-            resposta = model.generate_content(prompt)
-            return resposta # Se funcionou, retorna e sai da função
-        except Exception as e:
-            # Se der erro, apenas continua para o próximo da lista
-            erro_final = str(e)
-            continue
-            
-    # Se chegou aqui, nenhum funcionou
-    raise Exception(f"Nenhum modelo funcionou. Erro: {erro_final}")
+    try:
+        # Lista todos os modelos disponíveis para sua chave
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                if 'flash' in m.name: # Prioriza o Flash (mais rápido)
+                    return m.name
+        
+        # Se não achar flash, pega o primeiro genérico (ex: gemini-pro)
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                return m.name
+                
+    except Exception as e:
+        return None
+    return "models/gemini-pro" # Fallback final
+
+# Define o modelo uma vez ao carregar
+MODELO_NOME = obter_modelo_disponivel()
 
 # --- Interface Principal ---
 st.title("💊 Treinador de Vendas - Suprabio")
@@ -80,13 +82,16 @@ with st.sidebar:
         ["Selecione...", "André", "Bruna", "Eliana", "Gabriel", "Leticia", "Marcella", "Layana"]
     )
     
+    if MODELO_NOME:
+        st.caption(f"✅ Conectado ao modelo: {MODELO_NOME.replace('models/', '')}")
+    else:
+        st.error("❌ Erro ao buscar modelos. Verifique a API Key.")
+
     produtos_suprabio = st.text_area(
         "Produtos do Treino",
         value="Suprabio A-Z, Suprabio Cabelos e Unhas, Suprabio Mulher, Suprabio Sênior, Suprabio Cálcio MDK.",
         height=100
     )
-    
-    st.success("✅ Sistema Conectado")
 
 # --- Abas ---
 tab1, tab2 = st.tabs(["🏋️ Simulação (Roleplay)", "📊 Relatórios"])
@@ -95,7 +100,6 @@ tab1, tab2 = st.tabs(["🏋️ Simulação (Roleplay)", "📊 Relatórios"])
 with tab1:
     if colaborador_atual != "Selecione...":
         
-        # Inicializa variáveis de estado se não existirem
         if "cenario" not in st.session_state: st.session_state.cenario = ""
         if "feedback" not in st.session_state: st.session_state.feedback = ""
         if "nota" not in st.session_state: st.session_state.nota = 0.0
@@ -105,16 +109,16 @@ with tab1:
         with col1:
             st.subheader("1. Cenário do Cliente")
             if st.button("🔄 Gerar Novo Cliente", type="primary"):
-                with st.spinner("Criando cliente (buscando melhor servidor)..."):
+                with st.spinner("Criando cliente..."):
                     try:
+                        model = genai.GenerativeModel(MODELO_NOME)
                         prompt = f"Crie uma fala curta (apenas a fala entre aspas) de um cliente de farmácia com uma queixa que se resolve com: {produtos_suprabio}. Seja natural e use linguagem coloquial brasileira."
-                        # Usando a nova função segura
-                        res = tentar_gerar_conteudo(prompt)
+                        res = model.generate_content(prompt)
                         st.session_state.cenario = res.text
                         st.session_state.feedback = ""
                         st.session_state.nota = 0.0
                     except Exception as e:
-                        st.error(f"Erro de conexão: {e}")
+                        st.error(f"Erro na API: {e}")
 
             if st.session_state.cenario:
                 st.info(f"🗣️ **Cliente:** {st.session_state.cenario}")
@@ -126,6 +130,7 @@ with tab1:
                     if resposta:
                         with st.spinner("O Treinador IA está analisando..."):
                             try:
+                                model = genai.GenerativeModel(MODELO_NOME)
                                 prompt_av = f"""
                                 Aja como um gerente experiente de farmácia treinando a equipe.
                                 Cenário: {st.session_state.cenario}
@@ -141,11 +146,9 @@ with tab1:
                                 A primeira linha deve ser EXATAMENTE assim: "Nota: X.X" (onde X é a nota).
                                 Pule uma linha e dê o feedback detalhado.
                                 """
-                                # Usando a nova função segura
-                                res = tentar_gerar_conteudo(prompt_av)
+                                res = model.generate_content(prompt_av)
                                 txt = res.text.strip().split('\n')
                                 
-                                # Extração da nota
                                 try:
                                     primeira_linha = txt[0]
                                     match = re.search(r"(\d+[\.,]\d+|\d+)", primeira_linha)
@@ -154,7 +157,6 @@ with tab1:
                                         st.session_state.nota = float(nota_str)
                                     else:
                                         st.session_state.nota = 5.0 
-                                    
                                     st.session_state.feedback = "\n".join(txt[1:])
                                 except:
                                     st.session_state.nota = 0.0
@@ -182,22 +184,13 @@ with tab1:
     elif colaborador_atual == "Selecione...":
         st.warning("👈 Selecione o colaborador na barra lateral para começar.")
 
-# --- ABA 2: RELATÓRIOS ---
 with tab2:
     st.header("Histórico da Sessão")
     st.warning("⚠️ Lembre-se: Baixe o CSV antes de fechar o navegador.")
-    
     df = carregar_dados()
     if not df.empty:
         csv = converter_para_csv(df)
-        
-        st.download_button(
-            label="📥 Baixar Relatório (CSV)",
-            data=csv,
-            file_name=f"treino_suprabio_{datetime.now().strftime('%d-%m')}.csv",
-            mime='text/csv',
-        )
-        
+        st.download_button(label="📥 Baixar Relatório (CSV)", data=csv, file_name=f"treino_suprabio.csv", mime='text/csv')
         st.dataframe(df)
     else:
         st.info("Nenhum dado salvo ainda.")
