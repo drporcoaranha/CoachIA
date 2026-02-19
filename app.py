@@ -19,11 +19,11 @@ except:
 st.set_page_config(
     page_title="Coach Suprabio",
     page_icon="💊",
-    layout="centered", # Mantém perfeito no celular e elegante (centralizado) no PC
+    layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS Responsivo ---
+# --- CSS Responsivo e Estilo do Chat ---
 st.markdown("""
 <style>
     .stButton>button {
@@ -31,19 +31,32 @@ st.markdown("""
         height: 3.5em;
         font-weight: bold;
         border-radius: 12px;
-        font-size: 16px;
+        font-size: 15px;
     }
     .cliente-box {
-        padding: 20px;
+        padding: 15px;
         border-radius: 10px;
         background-color: #f0f2f6;
         border-left: 5px solid #ff4b4b;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
     }
-    .cliente-texto {
-        font-size: 18px;
-        font-weight: 600;
+    .vendedor-box {
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #e8f4f8;
+        border-right: 5px solid #0088cc;
+        margin-bottom: 10px;
+        text-align: right;
+    }
+    .chat-texto {
+        font-size: 17px;
         color: #31333F;
+    }
+    .chat-label {
+        font-size: 12px;
+        font-weight: bold;
+        color: #777;
+        margin-bottom: 5px;
     }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
@@ -54,7 +67,7 @@ st.markdown("""
 ARQUIVO_HISTORICO = "historico_treinamento.csv"
 ARQUIVO_EQUIPE = "equipe.csv"
 
-# --- BANCO DE DADOS DE CASOS REAIS (FARMÁCIA) ---
+# --- BANCO DE DADOS DE CASOS REAIS ---
 CASOS_REAIS = [
     {"queixa": "Moça, eu ando muito esquecido, a cabeça parece que não funciona direito e tô sem energia mental.", "produto_alvo": "Magnésio Dimalato ou Complexo B"},
     {"queixa": "Tenho sentido muita dor nas articulações, meu joelho estala quando subo escada. Tem algo pra 'lubrificar'?", "produto_alvo": "Cloreto de Magnésio ou Colágeno"},
@@ -103,7 +116,7 @@ def carregar_historico():
     if os.path.exists(ARQUIVO_HISTORICO):
         try: return pd.read_csv(ARQUIVO_HISTORICO)
         except: pass
-    return pd.DataFrame(columns=["Data", "Colaborador", "Cenario", "Resposta", "Nota", "FeedbackIA", "ObsGerente"])
+    return pd.DataFrame(columns=["Data", "Colaborador", "ProdutoAlvo", "Conversa", "Nota", "FeedbackIA"])
 
 def salvar_sessao(dados):
     df = carregar_historico()
@@ -125,14 +138,16 @@ MODELO_NOME = encontrar_modelo()
 
 # --- ESTADO INICIAL ---
 if "equipe" not in st.session_state: st.session_state.equipe = carregar_equipe()
-if "cenario" not in st.session_state: st.session_state.cenario = ""
+if "historico_chat" not in st.session_state: st.session_state.historico_chat = []
+if "turno" not in st.session_state: st.session_state.turno = 1
 if "produto_alvo" not in st.session_state: st.session_state.produto_alvo = ""
 if "nota" not in st.session_state: st.session_state.nota = 0.0
+if "feedback" not in st.session_state: st.session_state.feedback = ""
 
 # --- INTERFACE ---
 col_titulo, col_config = st.columns([5, 1])
 with col_titulo:
-    st.title("💊 Coach Suprabio") # Nome atualizado aqui!
+    st.title("💊 Coach Suprabio")
     if not CONEXAO_OK:
         st.error("⚠️ Configure a API Key nos 'Secrets'!")
 
@@ -145,8 +160,6 @@ with col_config:
                 genai.configure(api_key=nova_key)
                 st.rerun()
                 
-        st.info(f"Banco de dados carregado com {len(CASOS_REAIS)} situações reais.")
-        
         novo = st.text_input("Add Colaborador:")
         if st.button("➕") and novo:
             st.session_state.equipe.append(novo)
@@ -162,82 +175,136 @@ colaborador = st.selectbox("Vendedor:", ["Clique..."] + st.session_state.equipe,
 st.markdown("---")
 
 if colaborador != "Clique...":
-    if not st.session_state.cenario:
+    
+    # 1. BOTÃO INICIAR NOVO CLIENTE
+    if not st.session_state.historico_chat:
         if st.button("🔔 CHAMAR PRÓXIMO CLIENTE", type="primary"):
             caso = random.choice(CASOS_REAIS)
-            st.session_state.cenario = caso["queixa"]
+            st.session_state.historico_chat = [{"role": "Cliente", "text": caso["queixa"]}]
             st.session_state.produto_alvo = caso["produto_alvo"]
+            st.session_state.turno = 1
             st.session_state.feedback = ""
             st.rerun()
 
     else:
-        st.markdown(f"""
-        <div class="cliente-box">
-            <span style="color:#555;">🗣️ O CLIENTE DIZ:</span><br>
-            <div class="cliente-texto">"{st.session_state.cenario}"</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.expander("👀 Ver Produto Esperado (Só para Gerente)"):
-            st.write(f"**Indicação ideal:** {st.session_state.produto_alvo}")
-
-        resposta = st.text_area("✍️ Resposta do Vendedor:", height=100)
-
-        if st.button("✅ AVALIAR"):
-            if not resposta:
-                st.warning("Escreva a resposta!")
+        # 2. MOSTRAR A CONVERSA ATÉ AGORA
+        for msg in st.session_state.historico_chat:
+            if msg["role"] == "Cliente":
+                st.markdown(f"""<div class="cliente-box"><div class="chat-label">🗣️ CLIENTE:</div><div class="chat-texto">"{msg['text']}"</div></div>""", unsafe_allow_html=True)
             else:
-                if not MODELO_NOME and not CONEXAO_OK:
-                    st.error("Configure a chave API para avaliar.")
+                st.markdown(f"""<div class="vendedor-box"><div class="chat-label">🧑‍⚕️ {colaborador.upper()}:</div><div class="chat-texto">{msg['text']}</div></div>""", unsafe_allow_html=True)
+
+        # 3. ÁREA DE INTERAÇÃO (Se ainda não foi avaliado)
+        if not st.session_state.feedback:
+            st.write(f"*(Turno {st.session_state.turno} de 3)*")
+            resposta = st.text_area("✍️ O que você diz para o cliente?", height=80, key=f"input_{st.session_state.turno}")
+            
+            # Botões dinâmicos dependendo do turno
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Só mostra o botão de continuar se for turno 1 ou 2
+                if st.session_state.turno < 3:
+                    if st.button("🗣️ RESPONDER E CONTINUAR"):
+                        if not resposta:
+                            st.warning("Escreva algo para continuar!")
+                        else:
+                            with st.spinner("Cliente pensando..."):
+                                st.session_state.historico_chat.append({"role": "Vendedor", "text": resposta})
+                                
+                                # IA GERA RESPOSTA DO CLIENTE
+                                texto_conversa = "\n".join([f"{m['role']}: {m['text']}" for m in st.session_state.historico_chat])
+                                prompt_cliente = f"""
+                                Atue como um cliente de farmácia. Sua queixa principal é relacionada à falta de: {st.session_state.produto_alvo} (NÃO FALE O NOME DO PRODUTO, apenas sinta a dor).
+                                Histórico da conversa até agora:
+                                {texto_conversa}
+                                
+                                Como o cliente responderia à última fala do Vendedor? Seja curto (1 ou 2 frases), natural e direto. Sem aspas.
+                                """
+                                try:
+                                    modelo_uso = MODELO_NOME if MODELO_NOME else "models/gemini-pro"
+                                    model = genai.GenerativeModel(modelo_uso)
+                                    res_cliente = model.generate_content(prompt_cliente)
+                                    
+                                    st.session_state.historico_chat.append({"role": "Cliente", "text": res_cliente.text.strip()})
+                                    st.session_state.turno += 1
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"Erro na conexão com IA: {e}")
                 else:
-                    with st.spinner("O Coach está analisando..."):
-                        try:
-                            modelo_uso = MODELO_NOME if MODELO_NOME else "models/gemini-pro"
-                            model = genai.GenerativeModel(modelo_uso)
+                    st.info("Limite de perguntas atingido. Finalize a venda.")
+
+            with col2:
+                # O botão finalizar pode ser clicado a qualquer momento, ou é obrigatório no turno 3
+                btn_tipo = "primary" if st.session_state.turno == 3 else "secondary"
+                if st.button("✅ FINALIZAR E AVALIAR", type=btn_tipo):
+                    if not resposta:
+                        st.warning("Escreva sua resposta final / indicação do produto!")
+                    else:
+                        with st.spinner("O Coach está analisando o atendimento completo..."):
+                            st.session_state.historico_chat.append({"role": "Vendedor", "text": resposta})
                             
-                            prompt = f"""
+                            texto_conversa_final = "\n".join([f"{m['role']}: {m['text']}" for m in st.session_state.historico_chat])
+                            
+                            prompt_aval = f"""
                             Aja como um gerente técnico de farmácia e coach de vendas.
                             
-                            DADOS DO ATENDIMENTO:
-                            Queixa do Cliente: "{st.session_state.cenario}"
-                            Resposta do Vendedor: "{resposta}"
-                            Produto que deveria indicar: {st.session_state.produto_alvo}
+                            CONVERSA COMPLETA DO ATENDIMENTO:
+                            {texto_conversa_final}
                             
-                            CRITÉRIOS DE AVALIAÇÃO (Seja exigente):
-                            1. Fez sondagem? (Perguntou sintomas, a quanto tempo ocorre, etc antes de ofertar?)
-                            2. Criou conexão? (Não foi robô?)
-                            3. Indicou o produto correto ({st.session_state.produto_alvo}) focando no BENEFÍCIO pro cliente?
+                            PRODUTO ALVO ESPERADO: {st.session_state.produto_alvo}
+                            
+                            AVALIAÇÃO GERAL (Seja rigoroso):
+                            1. Sondagem: Fez boas perguntas investigativas antes de ofertar?
+                            2. Conexão: Foi empático e atencioso?
+                            3. Oferta: Indicou o produto correto ({st.session_state.produto_alvo}) focando no BENEFÍCIO (e não só na característica)?
                             
                             SAÍDA:
                             Nota: [0 a 10]
-                            [Feedback prático e direto]
+                            [Feedback prático e direto avaliando o conjunto da conversa]
                             """
-                            
-                            res = model.generate_content(prompt)
-                            st.session_state.feedback = res.text
-                            
-                            match = re.search(r"(\d+[\.,]\d+|\d+)", res.text)
-                            st.session_state.nota = float(match.group(0).replace(',', '.')) if match else 0.0
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro ao avaliar: {e}")
+                            try:
+                                modelo_uso = MODELO_NOME if MODELO_NOME else "models/gemini-pro"
+                                model = genai.GenerativeModel(modelo_uso)
+                                res_aval = model.generate_content(prompt_aval)
+                                
+                                st.session_state.feedback = res_aval.text
+                                match = re.search(r"(\d+[\.,]\d+|\d+)", res_aval.text)
+                                st.session_state.nota = float(match.group(0).replace(',', '.')) if match else 0.0
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao avaliar: {e}")
 
+        # 4. RESULTADO E FEEDBACK
         if st.session_state.feedback:
             st.markdown("---")
             cor = "green" if st.session_state.nota >= 7 else "red"
             st.markdown(f"<h1 style='text-align: center; color: {cor}'>{st.session_state.nota}/10</h1>", unsafe_allow_html=True)
-            st.info(st.session_state.feedback)
             
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("💾 SALVAR TREINO"):
-                    salvar_sessao({"Data": datetime.now().strftime("%d/%m %H:%M"), "Colaborador": colaborador, "Nota": st.session_state.nota, "Cenario": st.session_state.cenario})
+            with st.container(border=True):
+                st.info(st.session_state.feedback)
+            
+            with st.expander("👀 Ver Produto Alvo Original"):
+                st.write(f"O sistema esperava a indicação de: **{st.session_state.produto_alvo}**")
+            
+            col_save, col_discard = st.columns(2)
+            with col_save:
+                if st.button("💾 SALVAR TREINO", type="primary"):
+                    conversa_str = " | ".join([f"{m['role']}: {m['text']}" for m in st.session_state.historico_chat])
+                    salvar_sessao({
+                        "Data": datetime.now().strftime("%d/%m %H:%M"), 
+                        "Colaborador": colaborador, 
+                        "ProdutoAlvo": st.session_state.produto_alvo,
+                        "Conversa": conversa_str, 
+                        "Nota": st.session_state.nota, 
+                        "FeedbackIA": st.session_state.feedback
+                    })
                     st.success("Salvo!")
-                    st.session_state.cenario = ""
+                    st.session_state.historico_chat = []
                     st.session_state.feedback = ""
                     st.rerun()
-            with col2:
+            with col_discard:
                 if st.button("🗑️ DESCARTAR"):
-                    st.session_state.cenario = ""
+                    st.session_state.historico_chat = []
                     st.session_state.feedback = ""
                     st.rerun()
