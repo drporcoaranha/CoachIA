@@ -196,14 +196,18 @@ if colaborador != "Clique...":
 
         # 3. ÁREA DE INTERAÇÃO (Se ainda não foi avaliado)
         if not st.session_state.feedback:
+            
+            # --- GABARITO DO GERENTE ---
+            with st.expander("🤫 Gabarito do Gerente (Não mostre ao colaborador)"):
+                st.write(f"**Indicação ideal esperada:** {st.session_state.produto_alvo}")
+            # ---------------------------
+                
             st.write(f"*(Turno {st.session_state.turno} de 3)*")
             resposta = st.text_area("✍️ O que você diz para o cliente?", height=80, key=f"input_{st.session_state.turno}")
             
-            # Botões dinâmicos dependendo do turno
             col1, col2 = st.columns(2)
             
             with col1:
-                # Só mostra o botão de continuar se for turno 1 ou 2
                 if st.session_state.turno < 3:
                     if st.button("🗣️ RESPONDER E CONTINUAR"):
                         if not resposta:
@@ -212,7 +216,6 @@ if colaborador != "Clique...":
                             with st.spinner("Cliente pensando..."):
                                 st.session_state.historico_chat.append({"role": "Vendedor", "text": resposta})
                                 
-                                # IA GERA RESPOSTA DO CLIENTE
                                 texto_conversa = "\n".join([f"{m['role']}: {m['text']}" for m in st.session_state.historico_chat])
                                 prompt_cliente = f"""
                                 Atue como um cliente de farmácia. Sua queixa principal é relacionada à falta de: {st.session_state.produto_alvo} (NÃO FALE O NOME DO PRODUTO, apenas sinta a dor).
@@ -235,7 +238,6 @@ if colaborador != "Clique...":
                     st.info("Limite de perguntas atingido. Finalize a venda.")
 
             with col2:
-                # O botão finalizar pode ser clicado a qualquer momento, ou é obrigatório no turno 3
                 btn_tipo = "primary" if st.session_state.turno == 3 else "secondary"
                 if st.button("✅ FINALIZAR E AVALIAR", type=btn_tipo):
                     if not resposta:
@@ -283,9 +285,6 @@ if colaborador != "Clique...":
             
             with st.container(border=True):
                 st.info(st.session_state.feedback)
-            
-            with st.expander("👀 Ver Produto Alvo Original"):
-                st.write(f"O sistema esperava a indicação de: **{st.session_state.produto_alvo}**")
             
             col_save, col_discard = st.columns(2)
             with col_save:
