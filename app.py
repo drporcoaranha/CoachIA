@@ -68,39 +68,90 @@ ARQUIVO_HISTORICO = "historico_treinamento.csv"
 ARQUIVO_EQUIPE = "equipe.csv"
 
 # --- BANCO DE DADOS DE CASOS REAIS ---
+# --- BANCO DE DADOS DE CASOS REAIS (49 SITUAÇÕES) ---
 CASOS_REAIS = [
+    # --- MAGNÉSIO DIMALATO ---
     {"queixa": "Moça, eu ando muito esquecido, a cabeça parece que não funciona direito e tô sem energia mental.", "produto_alvo": "Magnésio Dimalato ou Complexo B"},
-    {"queixa": "Tenho sentido muita dor nas articulações, meu joelho estala quando subo escada. Tem algo pra 'lubrificar'?", "produto_alvo": "Cloreto de Magnésio ou Colágeno"},
-    {"queixa": "Eu deito na cama e fico rolando. O corpo cansa, mas a mente não desliga. Queria algo natural pra dormir.", "produto_alvo": "Melatonina ou Clamvit Zen"},
-    {"queixa": "Tô sentindo uma fraqueza no coração, me sinto muito cansado depois que fiz 40 anos. O médico falou de uma vitamina pro coração.", "produto_alvo": "Coenzima Q10"},
-    {"queixa": "Minha boca tá cheia de afta e eu pego resfriado toda semana. Minha imunidade deve estar no chão.", "produto_alvo": "Vitamina C ou Suprabio A-Z"},
-    {"queixa": "O médico mandou eu baixar meu triglicerídeos e colesterol ruim, mas queria algo pra ajudar junto com a dieta.", "produto_alvo": "Ômega 3"},
-    {"queixa": "Tô me sentindo fraco, sem disposição pra trabalhar. Sou homem, tenho 35 anos, queria um tônico geral.", "produto_alvo": "Suprabio Homem"},
-    {"queixa": "Menina, tô na menopausa, sentindo uns calores e muito desânimo. Tem alguma vitamina completa pra mulher?", "produto_alvo": "Suprabio Mulher"},
-    {"queixa": "Já passei dos 50 anos e sinto que meus ossos estão fracos e me falta energia pro dia a dia.", "produto_alvo": "Suprabio 50+"},
-    {"queixa": "Olha o estado da minha unha! Tá quebrando igual papel. E meu cabelo cai muito no banho.", "produto_alvo": "Suprabio Cabelos e Unhas"},
-    {"queixa": "Meu intestino é um relógio... parado! Fico 3 dias sem ir ao banheiro e me sinto inchada.", "produto_alvo": "Fibras ou Lactulose"},
-    {"queixa": "Toda tarde minha visão fica cansada, embaçada, parece que forço muito pra ler.", "produto_alvo": "Luteína"},
-    {"queixa": "Fiz um exame e deu osteopenia. O médico mandou tomar cálcio, mas disseram que tem um que vai direto pro osso.", "produto_alvo": "Cálcio MDK"},
-    {"queixa": "Tô muito estressado, pavio curto, qualquer coisa eu explodo. Queria algo pra acalmar sem dar sono.", "produto_alvo": "Clamvit Zen"},
     {"queixa": "Sinto muitas cãibras na panturrilha de madrugada, acordo gemendo de dor. Tem alguma vitamina pra isso?", "produto_alvo": "Magnésio Dimalato ou Cloreto de Magnésio"},
-    {"queixa": "Comecei a tomar estatina pra colesterol e agora sinto muita dor muscular, parece que fui atropelado. O médico falou de um suplemento.", "produto_alvo": "Coenzima Q10"},
-    {"queixa": "Sinto um formigamento constante nas mãos e nos pés, além de um cansaço que não passa com nada.", "produto_alvo": "Complexo B"},
-    {"queixa": "Tenho hemorroida e sofro demais pra ir ao banheiro porque as fezes ficam muito ressecadas. Preciso amolecer isso urgente.", "produto_alvo": "Lactulose ou Fibras"},
-    {"queixa": "Estou sentindo minha pele do rosto e dos braços muito flácida, perdendo a firmeza da juventude.", "produto_alvo": "Colágeno"},
-    {"queixa": "Minha memória tá terrível, esqueço onde coloquei a chave, o que ia falar... Queria algo pro cérebro e que fizesse bem pro coração.", "produto_alvo": "Ômega 3"},
-    {"queixa": "Trabalho o dia inteiro sentado no computador, chego em casa exausto, sem pique nem pra brincar com meus filhos.", "produto_alvo": "Suprabio Homem"},
-    {"queixa": "Eu viajo muito a trabalho e meu fuso horário vira uma bagunça, perco totalmente a hora de dormir.", "produto_alvo": "Melatonina"},
-    {"queixa": "Minha mãe tem 68 anos e está comendo muito mal. Quase não come carne e tá ficando muito fraquinha.", "produto_alvo": "Suprabio 50+"},
-    {"queixa": "Fico o dia todo olhando pra tela do computador e do celular. No final do dia meu olho arde muito e fica seco.", "produto_alvo": "Luteína"},
+    {"queixa": "Acordo de manhã e parece que passou um caminhão em cima de mim. O corpo todo dolorido, pesado, uma canseira muscular crônica.", "produto_alvo": "Magnésio Dimalato"},
+    
+    # --- CLORETO DE MAGNÉSIO ---
+    {"queixa": "Tenho sentido muita dor nas articulações, meu joelho estala quando subo escada. Tem algo pra 'lubrificar'?", "produto_alvo": "Cloreto de Magnésio ou Colágeno"},
     {"queixa": "Tenho uns bicos de papagaio na coluna e acordo com as juntas todas travadas, duro igual um robô.", "produto_alvo": "Cloreto de Magnésio"},
-    {"queixa": "Estou numa ansiedade terrível por conta de problemas na família. Meu coração até acelera, mas tenho pavor de tomar tarja preta.", "produto_alvo": "Clamvit Zen"},
-    {"queixa": "As mulheres da minha família têm histórico de osteoporose. Eu já passei dos 40 e queria começar a prevenir.", "produto_alvo": "Cálcio MDK"},
+    {"queixa": "Tenho um esporão no calcanhar que me mata de dor quando piso no chão de manhã. Me falaram de um suplemento que desfaz isso.", "produto_alvo": "Cloreto de Magnésio"},
+    
+    # --- MELATONINA ---
+    {"queixa": "Eu deito na cama e fico rolando. O corpo cansa, mas a mente não desliga. Queria algo natural pra dormir.", "produto_alvo": "Melatonina ou Clamvit Zen"},
+    {"queixa": "Eu viajo muito a trabalho e meu fuso horário vira uma bagunça, perco totalmente a hora de dormir.", "produto_alvo": "Melatonina"},
+    {"queixa": "Eu até pego no sono rápido, mas acordo umas 3 da manhã e fico com o olho arregalado até clarear o dia. Tô um zumbi.", "produto_alvo": "Melatonina"},
+    {"queixa": "Trabalho por turno, uma semana de dia, outra de madrugada. Meu relógio biológico pifou, não durmo direito em horário nenhum.", "produto_alvo": "Melatonina"},
+    
+    # --- COENZIMA Q10 ---
+    {"queixa": "Tô sentindo uma fraqueza no coração, me sinto muito cansado depois que fiz 40 anos. O médico falou de uma vitamina pro coração.", "produto_alvo": "Coenzima Q10"},
+    {"queixa": "Comecei a tomar estatina pra colesterol e agora sinto muita dor muscular, parece que fui atropelado. O médico falou de um suplemento.", "produto_alvo": "Coenzima Q10"},
+    {"queixa": "Tenho muita enxaqueca e o médico disse que tem um suplemento que dá energia para as células e ajuda a diminuir as crises.", "produto_alvo": "Coenzima Q10"},
+    {"queixa": "Tive uma infecção forte há uns meses e parece que minha bateria nunca mais voltou aos 100%. Qualquer esforço já me deixa ofegante.", "produto_alvo": "Coenzima Q10"},
+    
+    # --- COMPLEXO B ---
+    {"queixa": "Sinto um formigamento constante nas mãos e nos pés, além de um cansaço que não passa com nada.", "produto_alvo": "Complexo B"},
+    {"queixa": "Sou diabético e ultimamente tenho sentido umas pontadas e uma queimação esquisita na sola dos pés.", "produto_alvo": "Complexo B"},
+    {"queixa": "Tô bebendo muita bebida alcoólica nos finais de semana e sinto que meu fígado e meus nervos tão pedindo arrego.", "produto_alvo": "Complexo B"},
+    
+    # --- VITAMINA C ---
+    {"queixa": "Minha boca tá cheia de afta e eu pego resfriado toda semana. Minha imunidade deve estar no chão.", "produto_alvo": "Vitamina C ou Suprabio A-Z"},
     {"queixa": "Meu nariz vive escorrendo. Basta o tempo mudar um pouquinho ou bater um vento gelado que eu já fico resfriada.", "produto_alvo": "Vitamina C"},
-    {"queixa": "Faço academia todo dia, me sinto bem, mas queria um suplemento focado em dar energia pra render mais no treino e no trabalho.", "produto_alvo": "Magnésio Dimalato ou Coenzima Q10"}
+    {"queixa": "Sinto que minha garganta arranha por qualquer friagem. E também demora muito pra cicatrizar qualquer machucadinho.", "produto_alvo": "Vitamina C"},
+    
+    # --- ÔMEGA 3 ---
+    {"queixa": "O médico mandou eu baixar meu triglicerídeos e colesterol ruim, mas queria algo pra ajudar junto com a dieta.", "produto_alvo": "Ômega 3"},
+    {"queixa": "Minha memória tá terrível, esqueço onde coloquei a chave, o que ia falar... Queria algo pro cérebro e que fizesse bem pro coração.", "produto_alvo": "Ômega 3"},
+    {"queixa": "Vou prestar concurso no fim do ano, mas sento pra estudar e não consigo focar, parece que dá um branco. Falaram que gordura de peixe é bom.", "produto_alvo": "Ômega 3"},
+    
+    # --- SUPRABIO HOMEM ---
+    {"queixa": "Tô me sentindo fraco, sem disposição pra trabalhar. Sou homem, tenho 35 anos, queria um tônico geral.", "produto_alvo": "Suprabio Homem"},
+    {"queixa": "Trabalho o dia inteiro sentado no computador, chego em casa exausto, sem pique nem pra brincar com meus filhos.", "produto_alvo": "Suprabio Homem"},
+    {"queixa": "A rotina tá tão puxada que chego à noite em casa sem vontade de nada, até minha libido caiu por falta de ânimo físico.", "produto_alvo": "Suprabio Homem"},
+    
+    # --- SUPRABIO MULHER ---
+    {"queixa": "Menina, tô na menopausa, sentindo uns calores e muito desânimo. Tem alguma vitamina completa pra mulher?", "produto_alvo": "Suprabio Mulher"},
+    {"queixa": "Meu fluxo menstrual é muito intenso e depois eu fico uns dias me arrastando, pálida e sem força nenhuma.", "produto_alvo": "Suprabio Mulher ou Complexo B"},
+    {"queixa": "Trabalho, cuido da casa, dos filhos... tô me sentindo esgotada fisicamente e com a pele meio sem vida.", "produto_alvo": "Suprabio Mulher"},
+    
+    # --- SUPRABIO 50+ ---
+    {"queixa": "Já passei dos 50 anos e sinto que meus ossos estão fracos e me falta energia pro dia a dia.", "produto_alvo": "Suprabio 50+"},
+    {"queixa": "Minha mãe tem 68 anos e está comendo muito mal. Quase não come carne e tá ficando muito fraquinha.", "produto_alvo": "Suprabio 50+"},
+    {"queixa": "Meu pai tá com 75 anos, almoça que é um passarinho. Tô com medo dele ficar desnutrido ou perder músculo.", "produto_alvo": "Suprabio 50+"},
+    
+    # --- SUPRABIO CABELOS E UNHAS ---
+    {"queixa": "Olha o estado da minha unha! Tá quebrando igual papel. E meu cabelo cai muito no banho.", "produto_alvo": "Suprabio Cabelos e Unhas"},
+    {"queixa": "Tirei aquele alongamento de gel e minha unha natural tá um papel, quebra só de encostar. Preciso fortalecer urgente.", "produto_alvo": "Suprabio Cabelos e Unhas"},
+    {"queixa": "Tive dengue faz uns meses e agora meu cabelo tá caindo aos tufos, tô ficando desesperada.", "produto_alvo": "Suprabio Cabelos e Unhas"},
+    
+    # --- FIBRAS / LACTULOSE ---
+    {"queixa": "Meu intestino é um relógio... parado! Fico 3 dias sem ir ao banheiro e me sinto inchada.", "produto_alvo": "Fibras ou Lactulose"},
+    {"queixa": "Tenho hemorroida e sofro demais pra ir ao banheiro porque as fezes ficam muito ressecadas. Preciso amolecer isso urgente.", "produto_alvo": "Lactulose ou Fibras"},
+    {"queixa": "Eu não quero tomar purgante porque me dá cólica, mas minha barriga tá tão estufada que não fecha nem a calça. Queria algo natural pra uso diário.", "produto_alvo": "Fibras"},
+    {"queixa": "Minha avó é acamada e o intestino dela é super preguiçoso. O médico falou de um xarope doce que não agride o estômago.", "produto_alvo": "Lactulose"},
+    
+    # --- LUTEÍNA ---
+    {"queixa": "Toda tarde minha visão fica cansada, embaçada, parece que forço muito pra ler.", "produto_alvo": "Luteína"},
+    {"queixa": "Fico o dia todo olhando pra tela do computador e do celular. No final do dia meu olho arde muito e fica seco.", "produto_alvo": "Luteína"},
+    {"queixa": "Trabalho como motorista de aplicativo, rodo o dia todo. A claridade do sol e farol à noite tão me incomodando demais.", "produto_alvo": "Luteína"},
+    
+    # --- CÁLCIO MDK ---
+    {"queixa": "Fiz um exame e deu osteopenia. O médico mandou tomar cálcio, mas disseram que tem um que vai direto pro osso.", "produto_alvo": "Cálcio MDK"},
+    {"queixa": "As mulheres da minha família têm histórico de osteoporose. Eu já passei dos 40 e queria começar a prevenir desde já.", "produto_alvo": "Cálcio MDK"},
+    {"queixa": "Tomei um tombo bobo e trinquei o osso do braço. Queria um suplemento pra ajudar a colar esse osso mais rápido e fortificar.", "produto_alvo": "Cálcio MDK"},
+    
+    # --- COLÁGENO ---
+    {"queixa": "Estou sentindo minha pele do rosto e dos braços muito flácida, perdendo a firmeza da juventude.", "produto_alvo": "Colágeno"},
+    {"queixa": "Emagreci bastante nos últimos meses, mas agora tô sentindo a pele do rosto meio caída, sabe? Queria algo de dentro pra fora.", "produto_alvo": "Colágeno"},
+    
+    # --- CLAMVIT ZEN ---
+    {"queixa": "Tô muito estressado, pavio curto, qualquer coisa eu explodo. Queria algo pra acalmar sem dar sono.", "produto_alvo": "Clamvit Zen"},
+    {"queixa": "Estou numa ansiedade terrível por conta de problemas na família. Meu coração até acelera, mas tenho pavor de tomar tarja preta.", "produto_alvo": "Clamvit Zen"},
+    {"queixa": "Tenho sentido um aperto no peito e um nó na garganta de tanta ansiedade com as provas da faculdade, mas não posso tomar remédio que dopa.", "produto_alvo": "Clamvit Zen"}
 ]
-
-# --- FUNÇÕES ---
 def carregar_equipe():
     if os.path.exists(ARQUIVO_EQUIPE):
         try: return pd.read_csv(ARQUIVO_EQUIPE)['Nome'].tolist()
@@ -307,3 +358,4 @@ if colaborador != "Clique...":
                     st.session_state.historico_chat = []
                     st.session_state.feedback = ""
                     st.rerun()
+
