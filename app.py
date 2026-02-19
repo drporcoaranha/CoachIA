@@ -19,7 +19,7 @@ except:
 # --- Configuração da Página ---
 st.set_page_config(
     page_title="Coach Suprabio",
-    page_icon="💊",
+    page_icon="🏆",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -59,14 +59,26 @@ st.markdown("""
         color: #777;
         margin-bottom: 5px;
     }
+    /* Classe para centralizar títulos */
+    .titulo-central {
+        text-align: center;
+        font-size: 2.2em;
+        font-weight: 800;
+        margin-bottom: 5px;
+    }
+    .subtitulo-central {
+        text-align: center;
+        color: #555;
+        margin-bottom: 20px;
+    }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- ARQUIVOS (AGORA EM EXCEL) ---
+# --- ARQUIVOS ---
 ARQUIVO_HISTORICO = "historico_treinamento.xlsx"
-ARQUIVO_EQUIPE = "equipe.csv" # A equipe mantemos em CSV pois é só uma lista simples interna
+ARQUIVO_EQUIPE = "equipe.csv"
 
 # --- BANCO DE DADOS DE CASOS REAIS (49 SITUAÇÕES) ---
 CASOS_REAIS = [
@@ -166,16 +178,19 @@ if "produto_alvo" not in st.session_state: st.session_state.produto_alvo = ""
 if "nota" not in st.session_state: st.session_state.nota = 0.0
 if "feedback" not in st.session_state: st.session_state.feedback = ""
 
-# --- INTERFACE ---
-col_titulo, col_config = st.columns([5, 1])
-with col_titulo:
-    st.title("💊 Coach Suprabio")
-    if not CONEXAO_OK:
-        st.error("⚠️ Configure a API Key nos 'Secrets'!")
+# ==========================================
+# HEADER CENTRALIZADO E SIMÉTRICO
+# ==========================================
+st.markdown("<div class='titulo-central'>🏆 💊 Coach Suprabio 🧠</div>", unsafe_allow_html=True)
 
-with col_config:
-    with st.popover("⚙️", use_container_width=True):
-        st.header("Ajustes")
+if not CONEXAO_OK:
+    st.error("⚠️ Configure a API Key nos 'Secrets'!")
+
+# Botão de configurações centralizado em 3 colunas para simetria
+col_esq, col_meio, col_dir = st.columns([1, 1, 1])
+with col_meio:
+    with st.popover("⚙️ Ajustes", use_container_width=True):
+        st.header("Ajustes do Gerente")
         if not CONEXAO_OK:
             nova_key = st.text_input("Cole API Key aqui:", type="password")
             if nova_key:
@@ -183,30 +198,33 @@ with col_config:
                 st.rerun()
                 
         novo = st.text_input("Add Colaborador:")
-        if st.button("➕") and novo:
+        if st.button("➕ Adicionar") and novo:
             st.session_state.equipe.append(novo)
             salvar_equipe(st.session_state.equipe)
             st.rerun()
             
         df_historico = carregar_historico()
         if not df_historico.empty:
-            # Gerador de arquivo Excel em memória para Download
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df_historico.to_excel(writer, index=False, sheet_name='Treinamentos')
             
             st.download_button(
-                label="📥 Baixar Histórico (Excel)",
+                label="📥 Baixar Excel",
                 data=buffer.getvalue(),
                 file_name=f"treino_coach_suprabio_{datetime.now().strftime('%d%m')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
-st.write("### 👤 Quem vai treinar agora?")
-colaborador = st.selectbox("Vendedor:", ["Clique..."] + st.session_state.equipe, label_visibility="collapsed")
 st.markdown("---")
+# ==========================================
 
-if colaborador != "Clique...":
+# Subtítulo Centralizado
+st.markdown("<h3 class='subtitulo-central'>👤 Quem vai treinar agora?</h3>", unsafe_allow_html=True)
+colaborador = st.selectbox("Vendedor:", ["Clique aqui para selecionar..."] + st.session_state.equipe, label_visibility="collapsed")
+st.markdown("<br>", unsafe_allow_html=True)
+
+if colaborador != "Clique aqui para selecionar...":
     
     if not st.session_state.historico_chat:
         if st.button("🔔 CHAMAR PRÓXIMO CLIENTE", type="primary"):
