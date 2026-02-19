@@ -276,4 +276,61 @@ if colaborador != "Clique...":
                             texto_conversa_final = "\n".join([f"{m['role']}: {m['text']}" for m in st.session_state.historico_chat])
                             
                             prompt_aval = f"""
-                            Aja como um gerente técnico de
+                            Aja como um gerente técnico de farmácia e coach de vendas.
+                            
+                            CONVERSA COMPLETA DO ATENDIMENTO:
+                            {texto_conversa_final}
+                            
+                            PRODUTO ALVO ESPERADO: {st.session_state.produto_alvo}
+                            
+                            AVALIAÇÃO GERAL (Seja rigoroso):
+                            1. Sondagem: Fez boas perguntas investigativas antes de ofertar?
+                            2. Conexão: Foi empático e atencioso?
+                            3. Oferta: Indicou o produto correto ({st.session_state.produto_alvo}) focando no BENEFÍCIO (e não só na característica)?
+                            
+                            SAÍDA:
+                            Nota: [0 a 10]
+                            [Feedback prático e direto avaliando o conjunto da conversa]
+                            """
+                            try:
+                                modelo_uso = MODELO_NOME if MODELO_NOME else "models/gemini-pro"
+                                model = genai.GenerativeModel(modelo_uso)
+                                res_aval = model.generate_content(prompt_aval)
+                                
+                                st.session_state.feedback = res_aval.text
+                                match = re.search(r"(\d+[\.,]\d+|\d+)", res_aval.text)
+                                st.session_state.nota = float(match.group(0).replace(',', '.')) if match else 0.0
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Erro ao avaliar: {e}")
+
+        # 4. RESULTADO E FEEDBACK
+        if st.session_state.feedback:
+            st.markdown("---")
+            cor = "green" if st.session_state.nota >= 7 else "red"
+            st.markdown(f"<h1 style='text-align: center; color: {cor}'>{st.session_state.nota}/10</h1>", unsafe_allow_html=True)
+            
+            with st.container(border=True):
+                st.info(st.session_state.feedback)
+            
+            col_save, col_discard = st.columns(2)
+            with col_save:
+                if st.button("💾 SALVAR TREINO", type="primary"):
+                    conversa_str = " | ".join([f"{m['role']}: {m['text']}" for m in st.session_state.historico_chat])
+                    salvar_sessao({
+                        "Data": datetime.now().strftime("%d/%m %H:%M"), 
+                        "Colaborador": colaborador, 
+                        "ProdutoAlvo": st.session_state.produto_alvo,
+                        "Conversa": conversa_str, 
+                        "Nota": st.session_state.nota, 
+                        "FeedbackIA": st.session_state.feedback
+                    })
+                    st.success("Salvo!")
+                    st.session_state.historico_chat = []
+                    st.session_state.feedback = ""
+                    st.rerun()
+            with col_discard:
+                if st.button("🗑️ DESCARTAR"):
+                    st.session_state.historico_chat = []
+                    st.session_state.feedback = ""
+                    st.rerun()
