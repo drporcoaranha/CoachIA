@@ -17,13 +17,13 @@ except:
 
 # --- Configuração da Página ---
 st.set_page_config(
-    page_title="Treinador Suprabio",
+    page_title="Coach Suprabio",
     page_icon="💊",
-    layout="centered",
+    layout="centered", # Mantém perfeito no celular e elegante (centralizado) no PC
     initial_sidebar_state="collapsed"
 )
 
-# --- CSS ---
+# --- CSS Responsivo ---
 st.markdown("""
 <style>
     .stButton>button {
@@ -56,7 +56,6 @@ ARQUIVO_EQUIPE = "equipe.csv"
 
 # --- BANCO DE DADOS DE CASOS REAIS (FARMÁCIA) ---
 CASOS_REAIS = [
-    # Situações Originais
     {"queixa": "Moça, eu ando muito esquecido, a cabeça parece que não funciona direito e tô sem energia mental.", "produto_alvo": "Magnésio Dimalato ou Complexo B"},
     {"queixa": "Tenho sentido muita dor nas articulações, meu joelho estala quando subo escada. Tem algo pra 'lubrificar'?", "produto_alvo": "Cloreto de Magnésio ou Colágeno"},
     {"queixa": "Eu deito na cama e fico rolando. O corpo cansa, mas a mente não desliga. Queria algo natural pra dormir.", "produto_alvo": "Melatonina ou Clamvit Zen"},
@@ -71,8 +70,6 @@ CASOS_REAIS = [
     {"queixa": "Toda tarde minha visão fica cansada, embaçada, parece que forço muito pra ler.", "produto_alvo": "Luteína"},
     {"queixa": "Fiz um exame e deu osteopenia. O médico mandou tomar cálcio, mas disseram que tem um que vai direto pro osso.", "produto_alvo": "Cálcio MDK"},
     {"queixa": "Tô muito estressado, pavio curto, qualquer coisa eu explodo. Queria algo pra acalmar sem dar sono.", "produto_alvo": "Clamvit Zen"},
-    
-    # Novas Situações
     {"queixa": "Sinto muitas cãibras na panturrilha de madrugada, acordo gemendo de dor. Tem alguma vitamina pra isso?", "produto_alvo": "Magnésio Dimalato ou Cloreto de Magnésio"},
     {"queixa": "Comecei a tomar estatina pra colesterol e agora sinto muita dor muscular, parece que fui atropelado. O médico falou de um suplemento.", "produto_alvo": "Coenzima Q10"},
     {"queixa": "Sinto um formigamento constante nas mãos e nos pés, além de um cansaço que não passa com nada.", "produto_alvo": "Complexo B"},
@@ -95,7 +92,6 @@ def carregar_equipe():
     if os.path.exists(ARQUIVO_EQUIPE):
         try: return pd.read_csv(ARQUIVO_EQUIPE)['Nome'].tolist()
         except: pass
-    # Equipe Atualizada
     padrao = ["André", "Bruna", "Eliana", "Leticia", "Marcella", "Jessica", "Diego", "Anderson"]
     salvar_equipe(padrao)
     return padrao
@@ -114,14 +110,12 @@ def salvar_sessao(dados):
     df = pd.concat([df, pd.DataFrame([dados])], ignore_index=True)
     df.to_csv(ARQUIVO_HISTORICO, index=False)
 
-# Função para pegar modelo disponível (Auto-fix)
 @st.cache_resource
 def encontrar_modelo():
     if not API_KEY: return None
     try:
         modelos = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         if not modelos: return "models/gemini-pro"
-        # Prioridade
         for m in modelos:
             if "flash" in m: return m
         return modelos[0]
@@ -138,14 +132,13 @@ if "nota" not in st.session_state: st.session_state.nota = 0.0
 # --- INTERFACE ---
 col_titulo, col_config = st.columns([5, 1])
 with col_titulo:
-    st.title("💊 Treino Real Suprabio")
+    st.title("💊 Coach Suprabio") # Nome atualizado aqui!
     if not CONEXAO_OK:
         st.error("⚠️ Configure a API Key nos 'Secrets'!")
 
 with col_config:
     with st.popover("⚙️", use_container_width=True):
         st.header("Ajustes")
-        # Se não configurou Secrets, permite digitar aqui
         if not CONEXAO_OK:
             nova_key = st.text_input("Cole API Key aqui:", type="password")
             if nova_key:
@@ -162,7 +155,7 @@ with col_config:
             
         df = carregar_historico()
         if not df.empty:
-            st.download_button("📥 Baixar Histórico", df.to_csv(index=False).encode('utf-8'), "treino.csv", "text/csv")
+            st.download_button("📥 Baixar Histórico", df.to_csv(index=False).encode('utf-8'), "treino_coach_suprabio.csv", "text/csv")
 
 st.write("### 👤 Quem vai treinar agora?")
 colaborador = st.selectbox("Vendedor:", ["Clique..."] + st.session_state.equipe, label_visibility="collapsed")
@@ -170,7 +163,6 @@ st.markdown("---")
 
 if colaborador != "Clique...":
     if not st.session_state.cenario:
-        # BOTÃO AGORA SORTEIA DO BANCO DE DADOS
         if st.button("🔔 CHAMAR PRÓXIMO CLIENTE", type="primary"):
             caso = random.choice(CASOS_REAIS)
             st.session_state.cenario = caso["queixa"]
@@ -186,7 +178,6 @@ if colaborador != "Clique...":
         </div>
         """, unsafe_allow_html=True)
         
-        # Dica só pro gerente (opcional, pode tirar se quiser)
         with st.expander("👀 Ver Produto Esperado (Só para Gerente)"):
             st.write(f"**Indicação ideal:** {st.session_state.produto_alvo}")
 
@@ -199,14 +190,13 @@ if colaborador != "Clique...":
                 if not MODELO_NOME and not CONEXAO_OK:
                     st.error("Configure a chave API para avaliar.")
                 else:
-                    with st.spinner("O Treinador está analisando..."):
+                    with st.spinner("O Coach está analisando..."):
                         try:
-                            # Prompt de avaliação rigorosa
                             modelo_uso = MODELO_NOME if MODELO_NOME else "models/gemini-pro"
                             model = genai.GenerativeModel(modelo_uso)
                             
                             prompt = f"""
-                            Aja como um gerente técnico de farmácia.
+                            Aja como um gerente técnico de farmácia e coach de vendas.
                             
                             DADOS DO ATENDIMENTO:
                             Queixa do Cliente: "{st.session_state.cenario}"
@@ -226,7 +216,6 @@ if colaborador != "Clique...":
                             res = model.generate_content(prompt)
                             st.session_state.feedback = res.text
                             
-                            # Tenta extrair a nota
                             match = re.search(r"(\d+[\.,]\d+|\d+)", res.text)
                             st.session_state.nota = float(match.group(0).replace(',', '.')) if match else 0.0
                             st.rerun()
@@ -241,7 +230,7 @@ if colaborador != "Clique...":
             
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💾 SALVAR"):
+                if st.button("💾 SALVAR TREINO"):
                     salvar_sessao({"Data": datetime.now().strftime("%d/%m %H:%M"), "Colaborador": colaborador, "Nota": st.session_state.nota, "Cenario": st.session_state.cenario})
                     st.success("Salvo!")
                     st.session_state.cenario = ""
